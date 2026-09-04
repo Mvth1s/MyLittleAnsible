@@ -15,7 +15,7 @@ Statut : **en cours de développement**.
 - [x] `ssh.py` — connexion SSH (3 modes d'auth) + exécution de commande distante
 - [x] `modules/base.py` — classe parente commune (`BaseModule`, `ModuleResult`, `ModuleError`)
 - [ ] `modules/` — apt, copy, template, service, sysctl, command
-- [ ] `todos.py` — lecture du playbook et orchestration
+- [x] `todos.py` — lecture du playbook (`load_todos`) ; orchestration à venir
 - [ ] `cli.py` — point d'entrée (`-f`, `-i`, `--debug`, `--dry-run`)
 
 ## Prérequis
