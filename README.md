@@ -13,6 +13,7 @@ Statut : **en cours de développement**.
 - [x] `logger.py` — logging (format, `--debug`, préfixe host, troncature erreurs)
 - [x] `inventory.py` — lecture/validation de l'inventory YAML
 - [x] `ssh.py` — connexion SSH (3 modes d'auth) + exécution de commande distante
+- [x] `modules/base.py` — classe parente commune (`BaseModule`, `ModuleResult`, `ModuleError`)
 - [ ] `modules/` — apt, copy, template, service, sysctl, command
 - [ ] `todos.py` — lecture du playbook et orchestration
 - [ ] `cli.py` — point d'entrée (`-f`, `-i`, `--debug`, `--dry-run`)
