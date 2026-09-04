@@ -35,3 +35,21 @@ def install_excepthook(debug=False):
             # juste le message
             logging.error("%s", exc_value)
     sys.excepthook = hook
+
+
+class HostLoggerAdapter(logging.LoggerAdapter):
+    """
+    Logger qui préfixe les messages par 'host=<ip>'.
+    """
+    def process(self, msg, kwargs):
+        """
+        Préfixe le message avec 'host=<ip>'.
+        """
+        return f"host={self.extra['host']} {msg}", kwargs
+
+
+def get_host_logger(host):
+    """
+    Retourne un logger lié à l'adresse 'host'.
+    """
+    return HostLoggerAdapter(logging.getLogger(), {"host": host})
