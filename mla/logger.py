@@ -53,3 +53,12 @@ def get_host_logger(host):
     Retourne un logger lié à l'adresse 'host'.
     """
     return HostLoggerAdapter(logging.getLogger(), {"host": host})
+
+
+def truncate_output(text, limit=200):
+    """
+    Retourne au plus 'limit' caractères de 'text'.
+    """
+    if not text:
+        return ""
+    return text.strip()[:limit]
