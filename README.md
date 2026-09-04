@@ -114,7 +114,7 @@ mla/
 ├── ssh.py          connexions SSH et exécution de commandes distantes
 ├── logger.py       configuration du logging
 └── modules/        un module par action (base.py = classe parente)
-tests/              tests unitaires (un fichier par module)
+tests/              un fichier de tests par module (+ fixtures/ pour les YAML de test)
 ```
 
 Installer les outils de dev : `pip install -r requirements-dev.txt`.
@@ -126,8 +126,9 @@ Lancer le style et les tests :
 .venv/bin/pytest -q
 ```
 
-Sans pytest, chaque fichier de `tests/` se lance aussi directement :
-`.venv/bin/python tests/test_logger.py`.
+`pyproject.toml` configure `pytest` (`pythonpath = ["."]`) pour que les fichiers
+de `tests/` puissent faire `from mla... import ...` quel que soit le dossier
+depuis lequel `pytest` est lancé.
 
 Le code doit respecter la PEP8 ; `print` est interdit, tout passe par `logging`.
 

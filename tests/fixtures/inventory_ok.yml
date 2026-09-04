@@ -1,0 +1,9 @@
+hosts:
+  webserver:
+    ssh_address: 192.168.1.22
+    ssh_port: 2222
+  bastion:
+    ssh_address: 192.168.1.24
+    ssh_port: 22
+    ssh_user: bob
+    ssh_password: secret

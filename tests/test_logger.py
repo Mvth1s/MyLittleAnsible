@@ -1,7 +1,5 @@
 """Tests du module mla.logger.
 
-Lançable directement (`python tests/test_logger.py`) ou via pytest plus tard.
-
 Chaque cas s'exécute dans un sous-processus : `configure_logging` ne configure
 le logging qu'une fois par process, et `sys.excepthook` ne se déclenche que sur
 une exception non rattrapée en haut du programme.
@@ -12,10 +10,9 @@ import re
 import subprocess
 import sys
 
-# Racine du projet : rend le paquet `mla` importable quel que soit le dossier
-# depuis lequel on lance les tests.
+# Racine du projet : passée aux sous-processus comme cwd pour qu'ils trouvent
+# le paquet `mla`, quel que soit le dossier depuis lequel pytest est lancé.
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
 
 PY = sys.executable
 
@@ -86,11 +83,3 @@ def test_truncate_output():
     assert truncate_output("") == ""
     assert truncate_output("  hi\n") == "hi"
     assert len(truncate_output("x" * 500)) == 200
-
-
-if __name__ == "__main__":
-    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
-    for test in tests:
-        test()
-        print("OK  " + test.__name__)
-    print("\nTOUT PASSE (%d tests)" % len(tests))
