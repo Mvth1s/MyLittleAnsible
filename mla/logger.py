@@ -1,19 +1,13 @@
 import logging
-logging.basicConfig(level=logging.INFO)
 
-def configure_logging():
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+
+def configure_logging(debug=False):
     """
-    Configure a simple console logger with the givel level.
-    A usecase is to change the formatting of the default handler of the root logger.
+    Configure le logger racine : format horodaté du
+    sujet, niveau DEBUG si debug sinon INFO.
     """
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger = logger or logging.getLogger()
-    logger.setLevel(level)
-    # If the logger has handlers, we configure the first one. Otherwise we add a handler and configure it
-    if logger.handlers:
-        console = logger.handlers[0]
-    else:
-        console = logging.StreamHandler()
-        logger.addHandler(console)
-    console.setFormatter(formatter)
-    console.setLevel(level)
+
+    level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(level=level, format=LOG_FORMAT)
