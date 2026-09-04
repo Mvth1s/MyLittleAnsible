@@ -10,6 +10,13 @@ la liste des cibles dans un `inventory.yml`, et `mla` applique.
 
 Statut : **en cours de développement**.
 
+- [x] `logger.py` — logging (format, `--debug`, préfixe host, troncature erreurs)
+- [x] `inventory.py` — lecture/validation de l'inventory YAML
+- [x] `ssh.py` — connexion SSH (3 modes d'auth) + exécution de commande distante
+- [ ] `modules/` — apt, copy, template, service, sysctl, command
+- [ ] `todos.py` — lecture du playbook et orchestration
+- [ ] `cli.py` — point d'entrée (`-f`, `-i`, `--debug`, `--dry-run`)
+
 ## Prérequis
 
 - Python 3.11+ (l'environnement de correction est Debian 12 « bookworm »)
