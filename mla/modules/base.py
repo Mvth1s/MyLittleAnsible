@@ -22,7 +22,7 @@ class BaseModule:
     def __init__(self, params: dict):
         self.params = params
 
-    def process(self, ssh_client):
+    def process(self, ssh_client, dry_run=False):
         """
         Applique l'action sur 'ssh_client' en utilisant 'self.params'.
 
