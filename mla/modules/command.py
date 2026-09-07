@@ -37,6 +37,9 @@ class Command(BaseModule):
         result = run_remote_cmd(full_cmd, ssh_client)
 
         if result.exit_code != 0:
-            raise ModuleError(result.stderr or result.stdout)
+            message = (result.stderr or
+                       result.stdout or
+                       f"commande terminée avec le code {result.exit_code}")
+            raise ModuleError(message)
 
         return ModuleResult(changed=True)

@@ -14,7 +14,7 @@ Statut : **en cours de développement**.
 - [x] `inventory.py` — lecture/validation de l'inventory YAML
 - [x] `ssh.py` — connexion SSH (3 modes d'auth) + exécution de commande distante
 - [x] `modules/base.py` — classe parente commune (`BaseModule`, `ModuleResult`, `ModuleError`)
-- [ ] `modules/` — apt, copy, template, service, sysctl, command
+- [ ] `modules/` — `command` ✓ · à faire : apt, copy, template, service, sysctl
 - [x] `todos.py` — lecture du playbook (`load_todos`) + orchestration (`run_todos`)
 - [x] `cli.py` — point d'entrée (`-f`, `-i`, `--debug`, `--dry-run`)
 
@@ -47,15 +47,25 @@ mla -f todos.yml -i inventory.yml
 | `--debug`   | affiche les stack traces en cas d'erreur (masquées par défaut)   |
 | `--dry-run` | n'applique rien : affiche seulement les commandes qui seraient exécutées |
 
-Exemple de sortie :
+Exemple de sortie (module `command` sur deux hôtes, dernière tâche en échec) :
 
 ```
-2022-01-06 21:49:16,432 - root - INFO - processing 6 tasks on hosts: 192.168.1.22, 192.168.1.24
-2022-01-06 21:49:16,432 - root - INFO - [1] host=192.168.1.22 op=apt name=nginx-common state=present
-2022-01-06 21:49:16,432 - root - INFO - [1] host=192.168.1.22 op=apt status=OK
-...
-2022-01-06 21:49:16,432 - root - INFO - host=192.168.1.22 ok=1 changed=5 fail=0
+2026-09-07 12:17:17,713 - root - INFO - processing 3 tasks on hosts: 172.28.0.11, 172.28.0.12
+2026-09-07 12:17:17,880 - root - INFO - [1] host=172.28.0.11 op=command command=whoami
+2026-09-07 12:17:17,880 - root - INFO - [1] host=172.28.0.12 op=command command=whoami
+2026-09-07 12:17:17,888 - root - INFO - [1] host=172.28.0.11 op=command status=CHANGED
+2026-09-07 12:17:17,937 - root - INFO - [1] host=172.28.0.12 op=command status=CHANGED
+2026-09-07 12:17:17,937 - root - INFO - [2] host=172.28.0.11 op=command command=touch /tmp/mla-demo echo done
+2026-09-07 12:17:17,944 - root - INFO - [2] host=172.28.0.11 op=command status=CHANGED
+2026-09-07 12:17:17,987 - root - INFO - [3] host=172.28.0.11 op=command command=exit 2
+2026-09-07 12:17:17,993 - root - INFO - [3] host=172.28.0.11 op=command status=KO
+2026-09-07 12:17:17,994 - root - ERROR - commande terminée avec le code 2
+2026-09-07 12:17:18,035 - root - INFO - done processing tasks for hosts: 172.28.0.11, 172.28.0.12
+2026-09-07 12:17:18,035 - root - INFO - host=172.28.0.11 ok=0 changed=2 fail=1
+2026-09-07 12:17:18,035 - root - INFO - host=172.28.0.12 ok=0 changed=2 fail=1
 ```
+
+`mla` sort avec un code non nul dès qu'un hôte a au moins un `fail`.
 
 ## Inventory
 

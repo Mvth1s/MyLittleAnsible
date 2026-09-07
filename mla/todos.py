@@ -68,7 +68,11 @@ def _format_params(params):
     'name=nginx state=present'
     à partir de {'name': 'nginx', 'state': 'present'}.
     """
-    return " ".join(f"{k}={v}" for k, v in params.items())
+    parts = []
+    for key, value in params.items():
+        flat = " ".join(str(value).split())
+        parts.append(f"{key}={flat}")
+    return " ".join(parts)
 
 
 def run_todos(todos, hosts, registry=None, dry_run=False):

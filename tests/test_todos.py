@@ -6,7 +6,14 @@ import pytest
 from mla.inventory import Host
 from mla.modules.base import ModuleError, ModuleResult
 from mla.ssh import SSHConnectionError
-from mla.todos import HostReport, Todo, TodosError, load_todos, run_todos
+from mla.todos import (
+    HostReport,
+    Todo,
+    TodosError,
+    _format_params,
+    load_todos,
+    run_todos,
+)
 
 
 def test_missing_file():
@@ -86,6 +93,25 @@ def test_valid_playbook_returns_expected_todos():
             params={"name": "nginx", "state": "started"},
         ),
     ]
+
+
+# --- _format_params ------------------------------------------------------
+
+
+def test_format_params_simple_values():
+    out = _format_params({"name": "nginx", "state": "present"})
+
+    assert out == "name=nginx state=present"
+
+
+def test_format_params_flattens_multiline_values():
+    out = _format_params({"command": "touch /tmp/x\ntest -f /tmp/x\n"})
+
+    assert out == "command=touch /tmp/x test -f /tmp/x"
+
+
+def test_format_params_empty():
+    assert _format_params({}) == ""
 
 
 # --- run_todos ------------------------------------------------------------

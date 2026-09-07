@@ -86,6 +86,17 @@ def test_process_error_falls_back_to_stdout(monkeypatch):
         mod.process(ssh_client=object())
 
 
+def test_process_error_without_output_mentions_exit_code(monkeypatch):
+    def fake_run(cmd, ssh_client):
+        return CmdResult(stdout="", stderr="", exit_code=5)
+
+    monkeypatch.setattr("mla.modules.command.run_remote_cmd", fake_run)
+    mod = Command({"command": "x"})
+
+    with pytest.raises(ModuleError, match="5"):
+        mod.process(ssh_client=object())
+
+
 def test_dry_run_does_not_execute(monkeypatch, caplog):
     caplog.set_level(logging.INFO)
     called = []

@@ -5,6 +5,7 @@ le logging qu'une fois par process, et `sys.excepthook` ne se déclenche que sur
 une exception non rattrapée en haut du programme.
 """
 
+import logging
 import os
 import re
 import subprocess
@@ -74,6 +75,15 @@ def test_keyboard_interrupt_is_native():
     assert r.returncode != 0
     assert "KeyboardInterrupt" in r.stderr and "ERROR" not in r.stderr, \
         (r.returncode, repr(r.stderr))
+
+
+def test_paramiko_logger_is_quiet():
+    r = _run(
+        "import logging; from mla.logger import configure_logging;"
+        " configure_logging();"
+        " print(logging.getLogger('paramiko').level)"
+    )
+    assert r.stdout.strip() == str(logging.WARNING), repr(r.stdout)
 
 
 def test_truncate_output():
