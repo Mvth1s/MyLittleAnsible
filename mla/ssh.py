@@ -3,6 +3,7 @@ Connexion SSH aux hôtes et exécution de commandes distantes.
 """
 
 import getpass
+import os
 from dataclasses import dataclass
 
 import paramiko
@@ -28,7 +29,7 @@ def _build_connect_kwargs(host):
     """
     kwargs = {"username": host.user or getpass.getuser()}
     if host.key_file:
-        kwargs["key_filename"] = host.key_file
+        kwargs["key_filename"] = os.path.expanduser(host.key_file)
     elif host.password:
         kwargs["password"] = host.password
     return kwargs

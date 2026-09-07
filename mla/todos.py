@@ -123,7 +123,8 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                 except ModuleError as exc:
                     logger.info("[%d] host=%s op=%s status=KO", i,
                                 host.address, todo.module)
-                    logger.error(truncate_output(str(exc)))
+                    logger.error("host=%s %s", host.address,
+                                 truncate_output(str(exc)))
                     reports[host.address].fail += 1
                 else:
                     status = "CHANGED" if result.changed else "OK"

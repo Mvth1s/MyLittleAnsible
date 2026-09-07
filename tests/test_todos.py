@@ -215,6 +215,18 @@ def test_module_error_is_counted_as_fail(fake_connect, caplog):
     assert "something went very wrong" in caplog.text
 
 
+def test_module_error_line_is_prefixed_by_host(fake_connect, caplog):
+    caplog.set_level(logging.INFO)
+    registry = {"boom": make_module(error="boom")}
+
+    run_todos([Todo(module="boom")], [make_host("10.0.0.2")],
+              registry=registry)
+
+    error_lines = [r.getMessage() for r in caplog.records
+                   if r.levelno == logging.ERROR]
+    assert error_lines == ["host=10.0.0.2 boom"]
+
+
 def test_error_output_is_truncated_to_200_chars(fake_connect, caplog):
     caplog.set_level(logging.INFO)
     long_msg = "x" * 500

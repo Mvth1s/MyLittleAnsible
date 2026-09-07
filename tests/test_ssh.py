@@ -57,6 +57,15 @@ def test_key_file_has_priority_over_password():
     assert "password" not in kwargs
 
 
+def test_key_file_tilde_is_expanded(monkeypatch):
+    monkeypatch.setenv("HOME", "/home/tester")
+    host = Host(name="w", address="1.2.3.4", user="alice",
+                key_file="~/.ssh/id_ed25519")
+    kwargs = _build_connect_kwargs(host)
+
+    assert kwargs["key_filename"] == "/home/tester/.ssh/id_ed25519"
+
+
 # --- connect() : on remplace paramiko.SSHClient par un faux ---------------
 
 def test_connect_uses_built_kwargs_and_sets_host_key_policy():
