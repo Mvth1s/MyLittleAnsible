@@ -16,7 +16,7 @@ Statut : **en cours de développement**.
 - [x] `modules/base.py` — classe parente commune (`BaseModule`, `ModuleResult`, `ModuleError`)
 - [ ] `modules/` — apt, copy, template, service, sysctl, command
 - [x] `todos.py` — lecture du playbook (`load_todos`) + orchestration (`run_todos`)
-- [ ] `cli.py` — point d'entrée (`-f`, `-i`, `--debug`, `--dry-run`)
+- [x] `cli.py` — point d'entrée (`-f`, `-i`, `--debug`, `--dry-run`)
 
 ## Prérequis
 

@@ -1,2 +1,23 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = "mla"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "paramiko",
+    "pyyaml",
+    "jinja2",
+    "click",
+]
+
+[project.scripts]
+mla = "mla.cli:main"
+
+[tool.setuptools]
+packages = ["mla", "mla.modules"]
