@@ -2,6 +2,9 @@
 Registre des modules disponibles : {nom: classe}.
 """
 
-# TODO: importer les classes concrètes au fur et à mesure et les enregistrer
-# ex: from mla.modules import CommandModule
-MODULES = {}
+from mla.modules.command import Command
+
+
+MODULES = {
+    Command.name: Command,
+}
