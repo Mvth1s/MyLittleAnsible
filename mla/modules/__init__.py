@@ -7,6 +7,7 @@ from mla.modules.apt import Apt
 from mla.modules.copy import Copy
 from mla.modules.service import Service
 from mla.modules.sysctl import Sysctl
+from mla.modules.template import Template
 
 MODULES = {
     Command.name: Command,
@@ -14,4 +15,5 @@ MODULES = {
     Copy.name: Copy,
     Service.name: Service,
     Sysctl.name: Sysctl,
+    Template.name: Template,
 }
