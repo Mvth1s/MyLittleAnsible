@@ -14,7 +14,7 @@ Statut : **en cours de développement**.
 - [x] `inventory.py` — lecture/validation de l'inventory YAML
 - [x] `ssh.py` — connexion SSH (3 modes d'auth) + exécution de commande distante
 - [x] `modules/base.py` — classe parente commune (`BaseModule`, `ModuleResult`, `ModuleError`)
-- [ ] `modules/` — `command` ✓, `apt` ✓, `copy` ✓, `service` ✓, `sysctl` ✓ · à faire : template
+- [x] `modules/` — `command`, `apt`, `copy`, `service`, `sysctl`, `template`
 - [x] `todos.py` — lecture du playbook (`load_todos`) + orchestration (`run_todos`)
 - [x] `cli.py` — point d'entrée (`-f`, `-i`, `--debug`, `--dry-run`)
 
