@@ -12,7 +12,8 @@ def configure_logging(debug=False):
 
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(level=level, format=LOG_FORMAT)
-    logging.getLogger("paramiko").setLevel(logging.WARNING)
+    logging.getLogger("paramiko").setLevel(
+        logging.DEBUG if debug else logging.WARNING)
     install_excepthook(debug=debug)
 
 

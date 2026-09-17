@@ -4,13 +4,17 @@ Point d'entrée en ligne de commande :
 """
 
 import sys
+import warnings
 
 import click
+from cryptography.utils import CryptographyDeprecationWarning
 
-from mla.inventory import load_inventory
-from mla.logger import configure_logging
-from mla.modules import MODULES
-from mla.todos import load_todos, run_todos
+warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+
+from mla.inventory import load_inventory  # noqa: E402
+from mla.logger import configure_logging  # noqa: E402
+from mla.modules import MODULES  # noqa: E402
+from mla.todos import load_todos, run_todos  # noqa: E402
 
 
 @click.command()

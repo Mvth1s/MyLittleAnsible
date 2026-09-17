@@ -1,5 +1,8 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
+filterwarnings = [
+    "ignore::cryptography.utils.CryptographyDeprecationWarning",
+]
 
 [build-system]
 requires = ["setuptools>=61"]
