@@ -89,6 +89,16 @@ Trois modes, choisis par hôte via des attributs supplémentaires dans l'invento
 | Utilisateur / mot de passe| `ssh_user`, `ssh_password`      | `ssh user@host`              |
 | Clé privée                | `ssh_user`, `ssh_key_file`      | `ssh -i key.pem user@host`   |
 
+### Élévation de privilèges (`apt`, `service`, `sysctl`)
+
+Ces trois modules ont besoin des droits root sur la cible et passent par
+`sudo` avec mot de passe (`sudo -S`, jamais `sudo -n`/NOPASSWD). Le mot de
+passe utilisé est celui de `ssh_password` dans l'inventory — **y compris pour
+un hôte qui se connecte en SSH par clé** (`ssh_key_file`). Renseigne donc
+`ssh_password` dès qu'un de ces trois modules cible cet hôte, même si
+`ssh_key_file` est aussi présent. Sans mot de passe, ces modules lèvent une
+erreur explicite plutôt que d'échouer silencieusement.
+
 ## Todos (playbook)
 
 ```yaml
