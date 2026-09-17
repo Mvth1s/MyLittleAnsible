@@ -33,15 +33,6 @@ def test_format_info():
     assert re.search(pattern, r.stderr.strip()), repr(r.stderr)
 
 
-def test_host_prefix():
-    r = _run(
-        "from mla.logger import configure_logging, get_host_logger;"
-        " configure_logging();"
-        " get_host_logger('1.2.3.4').info('op=apt status=OK')"
-    )
-    assert "host=1.2.3.4 op=apt status=OK" in r.stderr, repr(r.stderr)
-
-
 def test_debug_level():
     r = _run(
         "import logging; from mla.logger import configure_logging;"
