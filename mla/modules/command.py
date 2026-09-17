@@ -27,7 +27,7 @@ class Command(BaseModule):
         shell = self.params.get("shell", "/bin/bash")
         return f"{shell} -c {shlex.quote(command)}"
 
-    def process(self, ssh_client, dry_run=False):
+    def process(self, ssh_client, dry_run=False, sudo_password=None):
         full_cmd = self._build_command()
 
         if dry_run:

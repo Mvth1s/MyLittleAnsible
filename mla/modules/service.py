@@ -41,7 +41,7 @@ class Service(BaseModule):
         cmd = f"systemctl is-enabled {shlex.quote(svc)}"
         return run_remote_cmd(cmd, ssh_client).exit_code == 0
 
-    def process(self, ssh_client, dry_run=False):
+    def process(self, ssh_client, dry_run=False, sudo_password=None):
         svc, state = self._params()
         match state:
             case "started":

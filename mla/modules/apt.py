@@ -31,7 +31,7 @@ class Apt(BaseModule):
                f"2>/dev/null | grep -q 'ok installed'")
         return run_remote_cmd(cmd, ssh_client).exit_code == 0
 
-    def process(self, ssh_client, dry_run=False):
+    def process(self, ssh_client, dry_run=False, sudo_password=None):
         pkg, state = self._params()
         installed = self._is_installed(ssh_client, pkg)
 

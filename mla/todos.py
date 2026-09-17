@@ -117,8 +117,11 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
             for host in usable:
                 module = module_cls(todo.params)
                 try:
+                    sudo_password = host.password
                     result = module.process(clients[host.address],
-                                            dry_run=dry_run)
+                                            dry_run=dry_run,
+                                            sudo_password=sudo_password)
+
                 except ModuleError as exc:
                     logger.info("[%d] host=%s op=%s status=KO", i,
                                 host.address, todo.module)

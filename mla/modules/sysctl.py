@@ -41,7 +41,7 @@ class Sysctl(BaseModule):
         cmd = f"grep -qxF {shlex.quote(line)} {CONF_FILE}"
         return run_remote_cmd(cmd, ssh_client).exit_code == 0
 
-    def process(self, ssh_client, dry_run=False):
+    def process(self, ssh_client, dry_run=False, sudo_password=None):
         attribute, value, permanent = self._params()
         line = f"{attribute} = {value}"
 

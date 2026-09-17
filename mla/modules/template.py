@@ -64,7 +64,7 @@ class Template(BaseModule):
             return False
         return result.stdout.split()[0] == digest
 
-    def process(self, ssh_client, dry_run=False):
+    def process(self, ssh_client, dry_run=False, sudo_password=None):
         src, dest, vars = self._params()
         rendered = self._render(src, vars)
         digest = hashlib.sha256(rendered.encode()).hexdigest()

@@ -63,7 +63,7 @@ class Copy(BaseModule):
         remote_hash = result.stdout.split()[0]
         return remote_hash == self._sha256_local(local)
 
-    def process(self, ssh_client, dry_run=False):
+    def process(self, ssh_client, dry_run=False, sudo_password=None):
         src, dest, backup = self._params()
         targets = self._targets(src, dest)
 

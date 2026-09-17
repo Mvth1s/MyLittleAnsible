@@ -117,8 +117,9 @@ def test_format_params_empty():
 # --- run_todos ------------------------------------------------------------
 
 
-def make_host(address, name=None):
-    return Host(name=name or address, address=address, port=22)
+def make_host(address, name=None, password=None):
+    return Host(name=name or address, address=address, port=22,
+                password=password)
 
 
 def make_module(changed=False, error=None, calls=None):
@@ -128,15 +129,15 @@ def make_module(changed=False, error=None, calls=None):
     - `changed` : valeur de ModuleResult.changed renvoyée par process()
     - `error`   : si non None, process() lève ModuleError(error)
     - `calls`   : si une liste est passée, chaque process() y ajoute
-                  un tuple (params, dry_run)
+                  un tuple (params, dry_run, sudo_password)
     """
     class _FakeModule:
         def __init__(self, params):
             self.params = params
 
-        def process(self, ssh_client, dry_run=False):
+        def process(self, ssh_client, dry_run=False, sudo_password=None):
             if calls is not None:
-                calls.append((self.params, dry_run))
+                calls.append((self.params, dry_run, sudo_password))
             if error is not None:
                 raise ModuleError(error)
             return ModuleResult(changed=changed)
@@ -336,4 +337,14 @@ def test_dry_run_is_forwarded_to_modules(fake_connect):
     run_todos([Todo(module="fake", params={"a": 1})],
               [make_host("10.0.0.1")], registry=registry, dry_run=True)
 
-    assert calls == [({"a": 1}, True)]
+    assert calls == [({"a": 1}, True, None)]
+
+
+def test_sudo_password_is_forwarded_to_modules(fake_connect):
+    calls = []
+    registry = {"fake": make_module(calls=calls)}
+
+    run_todos([Todo(module="fake")],
+              [make_host("10.0.0.1", password="s3cret")], registry=registry)
+
+    assert calls == [({}, False, "s3cret")]
