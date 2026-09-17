@@ -7,8 +7,15 @@ from mla.modules.apt import Apt
 from mla.modules.base import ModuleError, ModuleResult
 from mla.ssh import CmdResult
 
-INSTALL = "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y nginx"
-REMOVE = "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get remove -y nginx"
+PASSWORD = "s3cret"
+INSTALL = (
+    "printf '%s\\n' s3cret | "
+    "sudo -S env DEBIAN_FRONTEND=noninteractive apt-get install -y nginx"
+)
+REMOVE = (
+    "printf '%s\\n' s3cret | "
+    "sudo -S env DEBIAN_FRONTEND=noninteractive apt-get remove -y nginx"
+)
 
 
 def make_run(installed, action_exit=0, action_stderr="", action_stdout=""):
@@ -61,7 +68,8 @@ def test_present_not_installed_installs(monkeypatch):
     fake_run, calls = make_run(installed=False)
     monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
 
-    result = Apt({"name": "nginx"}).process(ssh_client=object())
+    result = Apt({"name": "nginx"}).process(
+        ssh_client=object(), sudo_password=PASSWORD)
 
     assert result == ModuleResult(changed=True)
     assert calls[-1] == INSTALL
@@ -72,7 +80,7 @@ def test_absent_installed_removes(monkeypatch):
     monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
 
     result = Apt({"name": "nginx", "state": "absent"}).process(
-        ssh_client=object())
+        ssh_client=object(), sudo_password=PASSWORD)
 
     assert result == ModuleResult(changed=True)
     assert calls[-1] == REMOVE
@@ -95,7 +103,8 @@ def test_action_failure_raises_module_error(monkeypatch):
     monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
 
     with pytest.raises(ModuleError, match="unable to locate"):
-        Apt({"name": "nginx"}).process(ssh_client=object())
+        Apt({"name": "nginx"}).process(
+            ssh_client=object(), sudo_password=PASSWORD)
 
 
 def test_action_failure_without_output_mentions_code(monkeypatch):
@@ -103,6 +112,15 @@ def test_action_failure_without_output_mentions_code(monkeypatch):
     monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
 
     with pytest.raises(ModuleError, match="100"):
+        Apt({"name": "nginx"}).process(
+            ssh_client=object(), sudo_password=PASSWORD)
+
+
+def test_missing_sudo_password_raises_when_change_needed(monkeypatch):
+    fake_run, _ = make_run(installed=False)
+    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+
+    with pytest.raises(ModuleError, match="mot de passe"):
         Apt({"name": "nginx"}).process(ssh_client=object())
 
 

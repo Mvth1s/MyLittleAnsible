@@ -22,11 +22,13 @@ RUN systemctl mask \
         dev-hugepages.mount sys-fs-fuse-connections.mount \
         systemd-firstboot.service || true
 
-# --- Test account: non-root, sudo NOPASSWD, plus a password so the
-#     user/password SSH auth mode is testable too.
+# --- Test account: non-root, sudo requires a password (matches the real
+#     correction environment) -- the same account password ("mla") is used
+#     for SSH password auth (ssh_password) and for sudo (-S), reproducing
+#     what the "sudo -n" -> "sudo -S" fix now relies on.
 RUN useradd --create-home --shell /bin/bash "${MLA_USER}" \
  && echo "${MLA_USER}:mla" | chpasswd \
- && echo "${MLA_USER} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${MLA_USER}" \
+ && echo "${MLA_USER} ALL=(ALL) ALL" > "/etc/sudoers.d/${MLA_USER}" \
  && chmod 0440 "/etc/sudoers.d/${MLA_USER}" \
  && install -d -o "${MLA_USER}" -g "${MLA_USER}" -m 700 "/home/${MLA_USER}/.ssh"
 

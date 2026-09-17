@@ -2,8 +2,8 @@
 
 Outillage de test local pour `mla`. **Ne fait pas partie du rendu.**
 Deux conteneurs Debian 12 (bookworm) qui bootent `systemd`, avec `sshd`, un
-utilisateur non privilégié `mla` (sudo NOPASSWD), joignables en SSH depuis la
-machine hôte.
+utilisateur non privilégié `mla` (sudo avec mot de passe, comme sur
+l'environnement de correction), joignables en SSH depuis la machine hôte.
 
 ## Ce que tu obtiens
 
@@ -12,7 +12,10 @@ machine hôte.
 | host1 | `172.28.0.11` | `127.0.0.1:2221`        | `mla`| `mla`    | `~/.ssh/id_ed25519_mla`       |
 | host2 | `172.28.0.12` | `127.0.0.1:2222`        | `mla`| `mla`    | `~/.ssh/id_ed25519_mla`       |
 
-- `mla` a `sudo` sans mot de passe (`/etc/sudoers.d/mla`).
+- `mla` a `sudo` **avec** mot de passe (`/etc/sudoers.d/mla`, pas de
+  `NOPASSWD`) — le mot de passe du compte (`mla`) sert à la fois pour l'auth
+  SSH (`ssh_password`) et pour `sudo -S` côté modules (`apt`/`service`/
+  `sysctl`), pour reproduire l'environnement de correction.
 - `PasswordAuthentication` est activé → les 3 modes d'auth du sujet sont testables.
 - Les clés d'hôte SSH sont figées dans l'image : elles ne changent qu'au
   **rebuild**, pas à chaque `up`/`down`.
@@ -69,8 +72,10 @@ ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no \
 #       IdentityFile ~/.ssh/id_ed25519_mla
 # puis : ssh mla-host1
 
-# Vérifier sudo non interactif (contrainte no-root du projet)
-ssh -i ~/.ssh/id_ed25519_mla mla@172.28.0.11 'sudo -n systemctl restart ssh && echo OK'
+# Vérifier sudo avec mot de passe (c'est ce que apt/service/sysctl font
+# en interne via "printf '%s\n' <password> | sudo -S <commande>")
+ssh -i ~/.ssh/id_ed25519_mla mla@172.28.0.11 \
+    "printf '%s\n' mla | sudo -S systemctl restart ssh && echo OK"
 ```
 
 Si tu rebuild et que SSH râle sur la clé d'hôte :

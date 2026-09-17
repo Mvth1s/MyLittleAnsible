@@ -29,15 +29,24 @@ def make_run(active=False, enabled=False, action_exit=0, action_stderr=""):
     return fake_run, calls
 
 
-def run_service(monkeypatch, params, dry_run=False, **run_kw):
+PASSWORD = "s3cret"
+
+
+def sudo_cmd(systemctl_args):
+    return f"printf '%s\\n' {PASSWORD} | sudo -S systemctl {systemctl_args}"
+
+
+def run_service(monkeypatch, params, dry_run=False, sudo_password=None,
+                **run_kw):
     fake_run, calls = make_run(**run_kw)
     monkeypatch.setattr("mla.modules.service.run_remote_cmd", fake_run)
-    result = Service(params).process(object(), dry_run=dry_run)
+    result = Service(params).process(object(), dry_run=dry_run,
+                                     sudo_password=sudo_password)
     return result, calls
 
 
 def action_calls(calls):
-    return [c for c in calls if c.startswith("sudo -n systemctl")]
+    return [c for c in calls if c.startswith("printf")]
 
 
 def test_registry_exposes_service():
@@ -72,10 +81,11 @@ def test_params_valid():
 
 def test_started_when_inactive_starts(monkeypatch):
     result, calls = run_service(
-        monkeypatch, {"name": "nginx", "state": "started"}, active=False)
+        monkeypatch, {"name": "nginx", "state": "started"},
+        sudo_password=PASSWORD, active=False)
 
     assert result == ModuleResult(changed=True)
-    assert action_calls(calls) == ["sudo -n systemctl start nginx"]
+    assert action_calls(calls) == [sudo_cmd("start nginx")]
 
 
 def test_started_when_active_is_ok(monkeypatch):
@@ -88,10 +98,11 @@ def test_started_when_active_is_ok(monkeypatch):
 
 def test_stopped_when_active_stops(monkeypatch):
     result, calls = run_service(
-        monkeypatch, {"name": "nginx", "state": "stopped"}, active=True)
+        monkeypatch, {"name": "nginx", "state": "stopped"},
+        sudo_password=PASSWORD, active=True)
 
     assert result == ModuleResult(changed=True)
-    assert action_calls(calls) == ["sudo -n systemctl stop nginx"]
+    assert action_calls(calls) == [sudo_cmd("stop nginx")]
 
 
 def test_stopped_when_inactive_is_ok(monkeypatch):
@@ -107,18 +118,20 @@ def test_stopped_when_inactive_is_ok(monkeypatch):
 
 def test_restarted_when_active(monkeypatch):
     result, calls = run_service(
-        monkeypatch, {"name": "nginx", "state": "restarted"}, active=True)
+        monkeypatch, {"name": "nginx", "state": "restarted"},
+        sudo_password=PASSWORD, active=True)
 
     assert result == ModuleResult(changed=True)
-    assert action_calls(calls) == ["sudo -n systemctl restart nginx"]
+    assert action_calls(calls) == [sudo_cmd("restart nginx")]
 
 
 def test_restarted_when_inactive_still_changed(monkeypatch):
     result, calls = run_service(
-        monkeypatch, {"name": "nginx", "state": "restarted"}, active=False)
+        monkeypatch, {"name": "nginx", "state": "restarted"},
+        sudo_password=PASSWORD, active=False)
 
     assert result == ModuleResult(changed=True)
-    assert any("is-active" not in c for c in calls)
+    assert action_calls(calls) == [sudo_cmd("restart nginx")]
 
 
 # --- enabled / disabled ---------------------------------------------
@@ -126,10 +139,11 @@ def test_restarted_when_inactive_still_changed(monkeypatch):
 
 def test_enabled_when_disabled_enables(monkeypatch):
     result, calls = run_service(
-        monkeypatch, {"name": "nginx", "state": "enabled"}, enabled=False)
+        monkeypatch, {"name": "nginx", "state": "enabled"},
+        sudo_password=PASSWORD, enabled=False)
 
     assert result == ModuleResult(changed=True)
-    assert action_calls(calls) == ["sudo -n systemctl enable nginx"]
+    assert action_calls(calls) == [sudo_cmd("enable nginx")]
 
 
 def test_enabled_when_enabled_is_ok(monkeypatch):
@@ -142,10 +156,11 @@ def test_enabled_when_enabled_is_ok(monkeypatch):
 
 def test_disabled_when_enabled_disables(monkeypatch):
     result, calls = run_service(
-        monkeypatch, {"name": "nginx", "state": "disabled"}, enabled=True)
+        monkeypatch, {"name": "nginx", "state": "disabled"},
+        sudo_password=PASSWORD, enabled=True)
 
     assert result == ModuleResult(changed=True)
-    assert action_calls(calls) == ["sudo -n systemctl disable nginx"]
+    assert action_calls(calls) == [sudo_cmd("disable nginx")]
 
 
 def test_disabled_when_disabled_is_ok(monkeypatch):
@@ -162,14 +177,20 @@ def test_disabled_when_disabled_is_ok(monkeypatch):
 def test_action_failure_raises_module_error(monkeypatch):
     with pytest.raises(ModuleError, match="permission"):
         run_service(monkeypatch, {"name": "nginx", "state": "started"},
-                    active=False, action_exit=1,
+                    sudo_password=PASSWORD, active=False, action_exit=1,
                     action_stderr="permission denied")
 
 
 def test_action_failure_without_output_mentions_code(monkeypatch):
     with pytest.raises(ModuleError, match="5"):
         run_service(monkeypatch, {"name": "nginx", "state": "started"},
-                    active=False, action_exit=5)
+                    sudo_password=PASSWORD, active=False, action_exit=5)
+
+
+def test_missing_sudo_password_raises_when_change_needed(monkeypatch):
+    with pytest.raises(ModuleError, match="mot de passe"):
+        run_service(monkeypatch, {"name": "nginx", "state": "started"},
+                    active=False)
 
 
 def test_dry_run_does_not_execute(monkeypatch, caplog):
@@ -180,4 +201,4 @@ def test_dry_run_does_not_execute(monkeypatch, caplog):
 
     assert result == ModuleResult(changed=True)
     assert action_calls(calls) == []
-    assert "sudo -n systemctl start nginx" in caplog.text
+    assert "systemctl start nginx" in caplog.text

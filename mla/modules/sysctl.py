@@ -57,8 +57,15 @@ class Sysctl(BaseModule):
                 attribute, value, permanent)
             return ModuleResult(changed=True)
 
+        if not sudo_password:
+            raise ModuleError(
+                "sysctl : mot de passe sudo requis mais absent de l'inventory"
+            )
+        password = shlex.quote(sudo_password)
+
         if not runtime_ok:
-            cmd = f"sudo -n sysctl -w {shlex.quote(f'{attribute}={value}')}"
+            action = f"sysctl -w {shlex.quote(f'{attribute}={value}')}"
+            cmd = f"printf '%s\\n' {password} | sudo -S {action}"
             result = run_remote_cmd(cmd, ssh_client)
             if result.exit_code != 0:
                 msg = (
@@ -68,7 +75,8 @@ class Sysctl(BaseModule):
 
         if permanent and not persist_ok:
             inner = f"echo {shlex.quote(line)} >> {CONF_FILE}"
-            cmd = "sudo -n sh -c " + shlex.quote(inner)
+            action = "sh -c " + shlex.quote(inner)
+            cmd = f"printf '%s\\n' {password} | sudo -S {action}"
             result = run_remote_cmd(cmd, ssh_client)
             if result.exit_code != 0:
                 msg = (

@@ -8,6 +8,7 @@ from mla.modules.sysctl import CONF_FILE, Sysctl
 from mla.ssh import CmdResult
 
 ATTR = "net.core.somaxconn"
+PASSWORD = "s3cret"
 
 
 def make_run(current="0", persisted=False, w_exit=0, echo_exit=0, w_stderr=""):
@@ -36,15 +37,17 @@ def make_run(current="0", persisted=False, w_exit=0, echo_exit=0, w_stderr=""):
     return fake_run, calls
 
 
-def run_sysctl(monkeypatch, params, dry_run=False, **run_kw):
+def run_sysctl(monkeypatch, params, dry_run=False, sudo_password=None,
+               **run_kw):
     fake_run, calls = make_run(**run_kw)
     monkeypatch.setattr("mla.modules.sysctl.run_remote_cmd", fake_run)
-    result = Sysctl(params).process(object(), dry_run=dry_run)
+    result = Sysctl(params).process(object(), dry_run=dry_run,
+                                    sudo_password=sudo_password)
     return result, calls
 
 
 def sudo_calls(calls):
-    return [c for c in calls if c.startswith("sudo -n")]
+    return [c for c in calls if c.startswith("printf")]
 
 
 def test_registry_exposes_sysctl():
@@ -109,11 +112,12 @@ def test_runtime_already_set_no_permanent_is_ok(monkeypatch):
 
 def test_runtime_differs_sets_it(monkeypatch):
     result, calls = run_sysctl(
-        monkeypatch, {"attribute": ATTR, "value": 8192}, current="128")
+        monkeypatch, {"attribute": ATTR, "value": 8192},
+        sudo_password=PASSWORD, current="128")
 
     assert result == ModuleResult(changed=True)
     assert sudo_calls(calls) == [
-        f"sudo -n sysctl -w {ATTR}=8192"]
+        f"printf '%s\\n' {PASSWORD} | sudo -S sysctl -w {ATTR}=8192"]
 
 
 def test_permanent_line_present_is_ok(monkeypatch):
@@ -130,12 +134,12 @@ def test_permanent_line_absent_writes_file_only(monkeypatch):
     result, calls = run_sysctl(
         monkeypatch,
         {"attribute": ATTR, "value": 8192, "permanent": True},
-        current="8192", persisted=False)
+        sudo_password=PASSWORD, current="8192", persisted=False)
 
     assert result == ModuleResult(changed=True)
     sudo = sudo_calls(calls)
     assert len(sudo) == 1
-    assert "sudo -n sh -c " in sudo[0]
+    assert "sudo -S sh -c " in sudo[0]
     assert CONF_FILE in sudo[0]
     assert "sysctl -w" not in sudo[0]
 
@@ -144,7 +148,7 @@ def test_permanent_runtime_and_file_both_updated(monkeypatch):
     result, calls = run_sysctl(
         monkeypatch,
         {"attribute": ATTR, "value": 8192, "permanent": True},
-        current="128", persisted=False)
+        sudo_password=PASSWORD, current="128", persisted=False)
 
     assert result == ModuleResult(changed=True)
     sudo = sudo_calls(calls)
@@ -155,14 +159,20 @@ def test_permanent_runtime_and_file_both_updated(monkeypatch):
 def test_sysctl_w_failure_raises(monkeypatch):
     with pytest.raises(ModuleError, match="operation not permitted"):
         run_sysctl(monkeypatch, {"attribute": ATTR, "value": 8192},
-                   current="128", w_exit=1,
+                   sudo_password=PASSWORD, current="128", w_exit=1,
                    w_stderr="operation not permitted")
 
 
 def test_sysctl_w_failure_without_output_mentions_code(monkeypatch):
     with pytest.raises(ModuleError, match="255"):
         run_sysctl(monkeypatch, {"attribute": ATTR, "value": 8192},
-                   current="128", w_exit=255)
+                   sudo_password=PASSWORD, current="128", w_exit=255)
+
+
+def test_missing_sudo_password_raises_when_change_needed(monkeypatch):
+    with pytest.raises(ModuleError, match="mot de passe"):
+        run_sysctl(monkeypatch, {"attribute": ATTR, "value": 8192},
+                   current="128")
 
 
 def test_dry_run_executes_nothing(monkeypatch, caplog):

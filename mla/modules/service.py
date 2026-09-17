@@ -63,11 +63,19 @@ class Service(BaseModule):
         if not need_change:
             return ModuleResult(changed=False)
 
-        cmd = f"sudo -n systemctl {verb} {shlex.quote(svc)}"
+        cmd_verb = f"systemctl {verb} {shlex.quote(svc)}"
 
         if dry_run:
-            logger.info("dry run : %s", cmd)
+            logger.info("dry run : %s", cmd_verb)
             return ModuleResult(changed=True)
+
+        if not sudo_password:
+            raise ModuleError(
+                "service : mot de passe sudo requis mais absent de l'inventory"
+            )
+
+        cmd = f"printf '%s\\n' {shlex.quote(sudo_password)} | " \
+            f"sudo -S {cmd_verb}"
 
         result = run_remote_cmd(cmd, ssh_client)
         if result.exit_code != 0:

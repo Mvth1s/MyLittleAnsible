@@ -42,14 +42,22 @@ class Apt(BaseModule):
 
         verb = "install" if state == "present" else "remove"
 
-        action = (f"sudo -n env DEBIAN_FRONTEND=noninteractive "
+        action = (f"env DEBIAN_FRONTEND=noninteractive "
                   f"apt-get {verb} -y {shlex.quote(pkg)}")
 
         if dry_run:
             logger.info("dry run : %s", action)
             return ModuleResult(changed=True)
 
-        result = run_remote_cmd(action, ssh_client)
+        if not sudo_password:
+            raise ModuleError(
+                "apt : mot de passe sudo requis mais absent de l'inventory"
+            )
+
+        cmd = (f"printf '%s\\n' {shlex.quote(sudo_password)} | "
+               f"sudo -S {action}")
+
+        result = run_remote_cmd(cmd, ssh_client)
         if result.exit_code != 0:
             msg = result.stderr or \
                 result.stdout or \
