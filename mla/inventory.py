@@ -32,9 +32,9 @@ def load_inventory(path):
         with open(path) as f:
             data = yaml.safe_load(f)
     except FileNotFoundError:
-        raise InventoryError(f"inventory introuvable : {path}")
+        raise InventoryError(f"inventory introuvable : {path}") from None
     except yaml.YAMLError as exc:
-        raise InventoryError(f"inventory YAML invalide : {exc}")
+        raise InventoryError(f"inventory YAML invalide : {exc}") from exc
 
     # B. valider la structure
     if not isinstance(data, dict) or "hosts" not in data:

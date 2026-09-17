@@ -35,7 +35,6 @@ class HostReport:
 def load_todos(path):
     """
     Lit 'path' (YAML) et retourne la liste des Todo.
-
     Lève TodosError si le fichier est absent, invalide ou mal structuré.
     """
     try:

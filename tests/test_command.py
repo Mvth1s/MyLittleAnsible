@@ -106,6 +106,6 @@ def test_dry_run_does_not_execute(monkeypatch, caplog):
 
     result = mod.process(ssh_client=object(), dry_run=True)
 
-    assert result == ModuleResult(changed=False)
+    assert result == ModuleResult(changed=True)
     assert called == []
     assert "/bin/bash -c 'echo hello'" in caplog.text

@@ -32,7 +32,7 @@ class Command(BaseModule):
 
         if dry_run:
             logger.info("dry run: %s", full_cmd)
-            return ModuleResult(changed=False)
+            return ModuleResult(changed=True)
 
         result = run_remote_cmd(full_cmd, ssh_client)
 
