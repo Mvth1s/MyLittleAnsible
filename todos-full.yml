@@ -1,0 +1,40 @@
+- module: apt
+  params:
+    name: nginx
+    state: present
+
+- module: copy
+  params:
+    src: ./public
+    dest: /var/www/public
+    backup: true
+
+- module: template
+  params:
+    src: default.conf.j2
+    dest: /etc/nginx/sites-enabled/default
+    vars:
+      listen_port: 8000
+      server_name: "_"
+
+- module: service
+  params:
+    name: nginx
+    state: restarted
+
+- module: service
+  params:
+    name: nginx
+    state: enabled
+
+- module: sysctl
+  params:
+    attribute: net.core.somaxconn
+    value: 8192
+    permanent: true
+
+- module: command
+  params:
+    command: |
+      echo "test" > /tmp/dummy-file
+      cat /tmp/dummy-file

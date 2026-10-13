@@ -1,0 +1,12 @@
+hosts:
+  host1:
+    ssh_address: 172.28.0.11
+    ssh_port: 22
+    ssh_user: mla
+    ssh_password: mla
+    ssh_key_file: ~/.ssh/id_ed25519_mla
+  host2:
+    ssh_address: 172.28.0.12
+    ssh_port: 22
+    ssh_user: mla
+    ssh_password: mla
