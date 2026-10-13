@@ -4,12 +4,8 @@ Point d'entrée en ligne de commande :
 """
 
 import sys
-import warnings
 
 import click
-from cryptography.utils import CryptographyDeprecationWarning
-
-warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
 from mla.inventory import load_inventory
 from mla.logger import configure_logging

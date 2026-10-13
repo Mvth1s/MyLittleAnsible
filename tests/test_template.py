@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from mla.modules import MODULES
-from mla.modules.base import ModuleError, ModuleResult
+from mla.modules.base import ModuleError, ModuleResult, sudo_cmd
 from mla.modules.template import Template
 from mla.ssh import CmdResult
 
@@ -34,7 +34,7 @@ def test_params_missing_dest(tmp_path):
 
 
 def test_params_src_not_found():
-    with pytest.raises(ModuleError, match="introuvable"):
+    with pytest.raises(ModuleError, match="not found"):
         Template({"src": "/nope/nope.j2", "dest": "/x"})._params()
 
 
@@ -48,7 +48,7 @@ def test_params_vars_defaults_to_empty_dict(tmp_path):
 def test_params_vars_must_be_a_dict(tmp_path):
     f = tmp_path / "a.j2"
     f.write_text("x")
-    with pytest.raises(ModuleError, match="dictionnaire"):
+    with pytest.raises(ModuleError, match="dict"):
         Template({"src": str(f), "dest": "/x", "vars": [1, 2]})._params()
 
 
@@ -126,57 +126,80 @@ def template_file(tmp_path):
     return f
 
 
-def test_process_no_change_skips_sftp(template_file, monkeypatch):
-    rendered = "listen 8000;"
-    digest = hashlib.sha256(rendered.encode()).hexdigest()
-    monkeypatch.setattr("mla.modules.template.run_remote_cmd",
-                        lambda cmd, c: cmd_result(f"{digest}  x\n"))
+def make_ssh():
     ssh = MagicMock()
-
-    result = Template({
-        "src": str(template_file), "dest": "/dst",
-        "vars": {"listen_port": 8000},
-    }).process(ssh)
-
-    assert result == ModuleResult(changed=False)
-    ssh.open_sftp.assert_not_called()
+    sftp = ssh.open_sftp.return_value
+    sftp.__enter__.return_value = sftp
+    return ssh, sftp
 
 
-def test_process_pushes_rendered_content_when_different(
-        template_file, monkeypatch):
+def patch_run(monkeypatch, remote_hash=None):
     calls = []
 
     def fake_run(cmd, c):
         calls.append(cmd)
         if cmd.startswith("sha256sum"):
-            return cmd_result("", exit_code=1)   # fichier distant absent
+            if remote_hash is None:
+                return cmd_result("", exit_code=1)   # fichier distant absent
+            return cmd_result(f"{remote_hash}  x\n")
+        if cmd == "mktemp -d":
+            return cmd_result("/tmp/tmp.mla42\n")
         return cmd_result()
 
     monkeypatch.setattr("mla.modules.template.run_remote_cmd", fake_run)
-    ssh = MagicMock()
+    monkeypatch.setattr("mla.modules.base.run_remote_cmd", fake_run)
+    return calls
 
-    result = Template({
-        "src": str(template_file), "dest": "/etc/nginx/default",
-        "vars": {"listen_port": 8000},
-    }).process(ssh)
+
+PARAMS = {"dest": "/etc/nginx/default", "vars": {"listen_port": 8000}}
+
+
+def test_process_no_change_skips_sftp(template_file, monkeypatch):
+    digest = hashlib.sha256(b"listen 8000;").hexdigest()
+    patch_run(monkeypatch, remote_hash=digest)
+    ssh, _ = make_ssh()
+
+    result = Template({"src": str(template_file), **PARAMS}).process(ssh)
+
+    assert result == ModuleResult(changed=False)
+    ssh.open_sftp.assert_not_called()
+
+
+def test_process_without_sudo_pushes_rendered_content(template_file,
+                                                      monkeypatch):
+    calls = patch_run(monkeypatch)
+    ssh, sftp = make_ssh()
+
+    result = Template({"src": str(template_file), **PARAMS}).process(ssh)
 
     assert result == ModuleResult(changed=True)
-    put_call = ssh.open_sftp.return_value.putfo.call_args
+    put_call = sftp.putfo.call_args
     assert put_call.args[0].getvalue() == b"listen 8000;"
     assert put_call.args[1] == "/etc/nginx/default"
-    assert any(c.startswith("mkdir -p") for c in calls)
+    assert "mkdir -p /etc/nginx" in calls
+
+
+def test_process_with_sudo_stages_and_installs(template_file, monkeypatch):
+    template_file.chmod(0o644)
+    calls = patch_run(monkeypatch)
+    ssh, sftp = make_ssh()
+
+    Template({"src": str(template_file), **PARAMS}).process(
+        ssh, sudo_password="s3cret")
+
+    assert sftp.putfo.call_args.args[1] == "/tmp/tmp.mla42/0"
+    install = sudo_cmd(
+        "install -D -m 0644 /tmp/tmp.mla42/0 /etc/nginx/default", "s3cret")
+    assert calls[-3:] == ["mktemp -d", install, "rm -rf /tmp/tmp.mla42"]
 
 
 def test_process_dry_run_does_not_push(template_file, monkeypatch, caplog):
     caplog.set_level(logging.INFO)
-    monkeypatch.setattr("mla.modules.template.run_remote_cmd",
-                        lambda cmd, c: cmd_result("", exit_code=1))
-    ssh = MagicMock()
+    patch_run(monkeypatch)
+    ssh, _ = make_ssh()
 
-    result = Template({
-        "src": str(template_file), "dest": "/dst",
-        "vars": {"listen_port": 8000},
-    }).process(ssh, dry_run=True)
+    result = Template({"src": str(template_file), **PARAMS}).process(
+        ssh, dry_run=True)
 
     assert result == ModuleResult(changed=True)
     ssh.open_sftp.assert_not_called()

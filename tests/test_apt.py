@@ -4,18 +4,15 @@ import pytest
 
 from mla.modules import MODULES
 from mla.modules.apt import Apt
-from mla.modules.base import ModuleError, ModuleResult
+from mla.modules.base import ModuleError, ModuleResult, sudo_cmd
 from mla.ssh import CmdResult
 
 PASSWORD = "s3cret"
-INSTALL = (
-    "printf '%s\\n' s3cret | "
-    "sudo -S env DEBIAN_FRONTEND=noninteractive apt-get install -y nginx"
-)
-REMOVE = (
-    "printf '%s\\n' s3cret | "
-    "sudo -S env DEBIAN_FRONTEND=noninteractive apt-get remove -y nginx"
-)
+INSTALL = sudo_cmd(
+    "apt-get update -qq && "
+    "DEBIAN_FRONTEND=noninteractive apt-get install -y nginx", PASSWORD)
+REMOVE = sudo_cmd(
+    "DEBIAN_FRONTEND=noninteractive apt-get remove -y nginx", PASSWORD)
 
 
 def make_run(installed, action_exit=0, action_stderr="", action_stdout=""):
@@ -34,6 +31,11 @@ def make_run(installed, action_exit=0, action_stderr="", action_stdout=""):
         return CmdResult(action_stdout, action_stderr, action_exit)
 
     return fake_run, calls
+
+
+def patch_run(monkeypatch, fake_run):
+    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    monkeypatch.setattr("mla.modules.base.run_remote_cmd", fake_run)
 
 
 def test_registry_exposes_apt():
@@ -56,7 +58,7 @@ def test_params_default_state_is_present():
 
 def test_present_already_installed_is_ok(monkeypatch):
     fake_run, calls = make_run(installed=True)
-    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    patch_run(monkeypatch, fake_run)
 
     result = Apt({"name": "nginx"}).process(ssh_client=object())
 
@@ -66,7 +68,7 @@ def test_present_already_installed_is_ok(monkeypatch):
 
 def test_present_not_installed_installs(monkeypatch):
     fake_run, calls = make_run(installed=False)
-    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    patch_run(monkeypatch, fake_run)
 
     result = Apt({"name": "nginx"}).process(
         ssh_client=object(), sudo_password=PASSWORD)
@@ -77,7 +79,7 @@ def test_present_not_installed_installs(monkeypatch):
 
 def test_absent_installed_removes(monkeypatch):
     fake_run, calls = make_run(installed=True)
-    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    patch_run(monkeypatch, fake_run)
 
     result = Apt({"name": "nginx", "state": "absent"}).process(
         ssh_client=object(), sudo_password=PASSWORD)
@@ -88,7 +90,7 @@ def test_absent_installed_removes(monkeypatch):
 
 def test_absent_not_installed_is_ok(monkeypatch):
     fake_run, calls = make_run(installed=False)
-    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    patch_run(monkeypatch, fake_run)
 
     result = Apt({"name": "nginx", "state": "absent"}).process(
         ssh_client=object())
@@ -100,7 +102,7 @@ def test_absent_not_installed_is_ok(monkeypatch):
 def test_action_failure_raises_module_error(monkeypatch):
     fake_run, _ = make_run(installed=False, action_exit=100,
                            action_stderr="E: unable to locate package")
-    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    patch_run(monkeypatch, fake_run)
 
     with pytest.raises(ModuleError, match="unable to locate"):
         Apt({"name": "nginx"}).process(
@@ -109,7 +111,7 @@ def test_action_failure_raises_module_error(monkeypatch):
 
 def test_action_failure_without_output_mentions_code(monkeypatch):
     fake_run, _ = make_run(installed=False, action_exit=100)
-    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    patch_run(monkeypatch, fake_run)
 
     with pytest.raises(ModuleError, match="100"):
         Apt({"name": "nginx"}).process(
@@ -118,19 +120,33 @@ def test_action_failure_without_output_mentions_code(monkeypatch):
 
 def test_missing_sudo_password_raises_when_change_needed(monkeypatch):
     fake_run, _ = make_run(installed=False)
-    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    patch_run(monkeypatch, fake_run)
 
-    with pytest.raises(ModuleError, match="mot de passe"):
+    with pytest.raises(ModuleError, match="sudo password"):
         Apt({"name": "nginx"}).process(ssh_client=object())
 
 
 def test_dry_run_does_not_execute_action(monkeypatch, caplog):
     caplog.set_level(logging.INFO)
     fake_run, calls = make_run(installed=False)
-    monkeypatch.setattr("mla.modules.apt.run_remote_cmd", fake_run)
+    patch_run(monkeypatch, fake_run)
 
     result = Apt({"name": "nginx"}).process(ssh_client=object(), dry_run=True)
 
     assert result == ModuleResult(changed=True)
     assert not any("apt-get" in c for c in calls)
     assert "apt-get install -y nginx" in caplog.text
+
+
+def test_install_refreshes_index_under_single_sudo(monkeypatch):
+    fake_run, calls = make_run(installed=False)
+    patch_run(monkeypatch, fake_run)
+
+    Apt({"name": "nginx-common"}).process(
+        ssh_client=object(), sudo_password=PASSWORD)
+
+    action = calls[-1]
+    assert "apt-get update" in action
+    assert "sudo -S -p ''" in action
+    assert action.count("sudo") == 1
+    assert action.index("apt-get update") < action.index("apt-get install")

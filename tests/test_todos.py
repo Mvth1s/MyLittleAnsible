@@ -168,7 +168,7 @@ def test_unknown_module_raises(fake_connect):
     registry = {"fake": make_module()}
     todos = [Todo(module="does_not_exist")]
 
-    with pytest.raises(TodosError, match="module inconnu"):
+    with pytest.raises(TodosError, match="unknown module"):
         run_todos(todos, [make_host("10.0.0.1")], registry=registry)
 
     assert fake_connect == {}  # aucune connexion ouverte avant la validation
@@ -296,7 +296,7 @@ def test_failed_connection_marks_all_todos_as_fail(monkeypatch, caplog):
 
     def _connect(host):
         if host.address == "10.0.0.2":
-            raise SSHConnectionError("connexion refusée")
+            raise SSHConnectionError("connection refused")
         return MagicMock()
 
     monkeypatch.setattr("mla.ssh.connect", _connect)
@@ -309,6 +309,7 @@ def test_failed_connection_marks_all_todos_as_fail(monkeypatch, caplog):
     assert reports["10.0.0.1"] == HostReport(ok=0, changed=2, fail=0)
     assert reports["10.0.0.2"] == HostReport(ok=0, changed=0, fail=2)
     assert "host=10.0.0.2 ok=0 changed=0 fail=2" in caplog.text
+    assert "host=10.0.0.2 connection failed: connection refused" in caplog.text
 
 
 def test_clients_are_closed_at_the_end(fake_connect):
@@ -348,3 +349,50 @@ def test_sudo_password_is_forwarded_to_modules(fake_connect):
               [make_host("10.0.0.1", password="s3cret")], registry=registry)
 
     assert calls == [({}, False, "s3cret")]
+
+
+def test_unexpected_exception_is_a_fail_and_run_continues(fake_connect,
+                                                          caplog):
+    caplog.set_level(logging.INFO)
+    calls = []
+
+    class _Crash:
+        def __init__(self, params):
+            pass
+
+        def process(self, ssh_client, dry_run=False, sudo_password=None):
+            raise OSError("disk on fire")
+
+    registry = {"crash": _Crash, "fake": make_module(changed=True,
+                                                     calls=calls)}
+
+    reports = run_todos([Todo(module="crash"), Todo(module="fake")],
+                        [make_host("10.0.0.1")], registry=registry)
+
+    assert reports["10.0.0.1"] == HostReport(ok=0, changed=1, fail=1)
+    assert len(calls) == 1
+    assert "[1] host=10.0.0.1 op=crash status=KO" in caplog.text
+    assert "host=10.0.0.1 OSError: disk on fire" in caplog.messages
+    assert "host=10.0.0.1 ok=0 changed=1 fail=1" in caplog.text
+
+
+def test_unexpected_exception_traceback_only_in_debug(fake_connect, caplog):
+    class _Crash:
+        def __init__(self, params):
+            pass
+
+        def process(self, ssh_client, dry_run=False, sudo_password=None):
+            raise OSError("disk on fire")
+
+    caplog.set_level(logging.INFO)
+    run_todos([Todo(module="crash")], [make_host("10.0.0.1")],
+              registry={"crash": _Crash})
+    assert not any(r.exc_info for r in caplog.records)
+
+    caplog.clear()
+    caplog.set_level(logging.DEBUG)
+    run_todos([Todo(module="crash")], [make_host("10.0.0.1")],
+              registry={"crash": _Crash})
+    traced = [r for r in caplog.records if r.exc_info]
+    assert len(traced) == 1
+    assert traced[0].levelno == logging.DEBUG

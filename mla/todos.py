@@ -41,22 +41,22 @@ def load_todos(path):
         with open(path) as f:
             data = yaml.safe_load(f)
     except FileNotFoundError:
-        raise TodosError(f"playbook introuvable : {path}") from None
+        raise TodosError(f"playbook not found: {path}") from None
     except yaml.YAMLError as exc:
-        raise TodosError(f"playbook YAML invalide : {exc}") from exc
+        raise TodosError(f"invalid playbook YAML: {exc}") from exc
 
     if not isinstance(data, list):
-        raise TodosError("playbook invalide : la racine doit être une liste")
+        raise TodosError("invalid playbook: root must be a list")
 
     todos = []
     for index, item in enumerate(data, start=1):
         if not isinstance(item, dict):
-            raise TodosError(f"todo {index} : définition invalide")
+            raise TodosError(f"todo {index}: invalid definition")
         if "module" not in item:
-            raise TodosError(f"todo {index} : clé 'module' manquante")
+            raise TodosError(f"todo {index}: missing 'module' key")
         params = item.get("params", {})
         if not isinstance(params, dict):
-            raise TodosError(f"todo {index} : 'params' doit être un dict")
+            raise TodosError(f"todo {index}: 'params' must be a dict")
         todos.append(Todo(module=item["module"], params=params))
 
     return todos
@@ -81,11 +81,11 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
     Retourne {ip: HostReport}.
     """
     if registry is None:
-        raise TodosError("aucun registre de modules fourni")
+        raise TodosError("no module registry provided")
 
     for todo in todos:
         if todo.module not in registry:
-            raise TodosError(f"module inconnu : {todo.module}")
+            raise TodosError(f"unknown module: {todo.module}")
 
     addresses = [h.address for h in hosts]
     logger.info("processing %d tasks on hosts: %s",
@@ -99,7 +99,7 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
             clients[host.address] = ssh.connect(host)
             usable.append(host)
         except ssh.SSHConnectionError as exc:
-            logger.error("failed to connect to host=%s: %s",
+            logger.error("host=%s connection failed: %s",
                          host.address, truncate_output(str(exc)))
             reports[host.address].fail = len(todos)
 
@@ -117,16 +117,25 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
             for host in usable:
                 module = module_cls(todo.params)
                 try:
-                    sudo_password = host.password
                     result = module.process(clients[host.address],
                                             dry_run=dry_run,
-                                            sudo_password=sudo_password)
-
+                                            sudo_password=host.password)
                 except ModuleError as exc:
+                    error = str(exc)
+                except Exception as exc:
+                    # bug ou erreur imprévue : la trace n'apparaît qu'en
+                    # --debug, le run continue sur les autres tâches
+                    logger.debug("host=%s op=%s unexpected error",
+                                 host.address, todo.module, exc_info=True)
+                    error = f"{type(exc).__name__}: {exc}"
+                else:
+                    error = None
+
+                if error is not None:
                     logger.info("[%d] host=%s op=%s status=KO", i,
                                 host.address, todo.module)
                     logger.error("host=%s %s", host.address,
-                                 truncate_output(str(exc)))
+                                 truncate_output(error))
                     reports[host.address].fail += 1
                 else:
                     status = "CHANGED" if result.changed else "OK"

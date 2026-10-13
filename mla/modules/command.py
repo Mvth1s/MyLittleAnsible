@@ -23,7 +23,7 @@ class Command(BaseModule):
         """
         command = self.params.get("command")
         if not command:
-            raise ModuleError("paramètre 'command' requis")
+            raise ModuleError("command: missing 'command' parameter")
         shell = self.params.get("shell", "/bin/bash")
         return f"{shell} -c {shlex.quote(command)}"
 
@@ -39,7 +39,7 @@ class Command(BaseModule):
         if result.exit_code != 0:
             message = (result.stderr or
                        result.stdout or
-                       f"commande terminée avec le code {result.exit_code}")
+                       f"command failed (exit code {result.exit_code})")
             raise ModuleError(message)
 
         return ModuleResult(changed=True)

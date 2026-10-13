@@ -45,9 +45,7 @@ def connect(host):
         client.connect(host.address, port=host.port,
                        **_build_connect_kwargs(host))
     except (paramiko.SSHException, OSError) as exc:
-        raise SSHConnectionError(
-            f"connexion à {host.address} impossible : {exc}"
-        ) from exc
+        raise SSHConnectionError(str(exc) or type(exc).__name__) from exc
     return client
 
 

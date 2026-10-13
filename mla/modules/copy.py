@@ -7,12 +7,40 @@ import logging
 import os
 import posixpath
 import shlex
+import stat
 from datetime import datetime
 
-from mla.modules.base import BaseModule, ModuleError, ModuleResult
+from mla.modules.base import (
+    BaseModule,
+    ModuleError,
+    ModuleResult,
+    run_checked,
+    sudo_cmd,
+    upload,
+)
 from mla.ssh import run_remote_cmd
 
 logger = logging.getLogger()
+
+
+def local_mode(path):
+    """
+    Permissions de 'path' en octal ('0644'), pour 'install -m'.
+    """
+    return f"{stat.S_IMODE(os.stat(path).st_mode):04o}"
+
+
+def backup_remote(ssh_client, dest, sudo_password=None):
+    """
+    Copie 'dest' en 'dest.<horodatage>' s'il existe sur l'hôte.
+    """
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    quoted = shlex.quote(dest)
+    cmd = (f"if [ -e {quoted} ]; then "
+           f"cp -a {quoted} {shlex.quote(f'{dest}.{ts}')}; fi")
+    if sudo_password:
+        cmd = sudo_cmd(cmd, sudo_password)
+    run_checked(cmd, ssh_client, "backup")
 
 
 class Copy(BaseModule):
@@ -24,10 +52,10 @@ class Copy(BaseModule):
         backup = self.params.get("backup", False)
         if not src or not dest:
             raise ModuleError(
-                "copy : src et dest sont obligatoires")
+                "copy: src and dest are required")
         if not os.path.exists(src):
             raise ModuleError(
-                f"copy : src introuvable : {src}")
+                f"copy: src not found: {src}")
         return src, dest, backup
 
     def _targets(self, src, dest):
@@ -42,7 +70,7 @@ class Copy(BaseModule):
             for f in files:
                 local = os.path.join(root, f)
                 rel = os.path.relpath(local, src)
-                remote = posixpath.join(dest, rel)
+                remote = posixpath.join(dest, *rel.split(os.sep))
                 pairs.append((local, remote))
         return pairs
 
@@ -77,25 +105,15 @@ class Copy(BaseModule):
 
         if dry_run:
             logger.info(
-                "dry_run : copie de %s vers %s (%d fichier(s))",
+                "dry run: copy %s to %s (%d file(s))",
                 src, dest, len(targets))
             return ModuleResult(changed=True)
 
         if backup:
-            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-            run_remote_cmd(
-                f"test -e {shlex.quote(dest)} && "
-                f"cp -a {shlex.quote(dest)} "
-                f"{shlex.quote(dest + '.' + ts)}",
-                ssh_client,
-            )
+            backup_remote(ssh_client, dest, sudo_password)
 
-        sftp = ssh_client.open_sftp()
-        for local, remote in targets:
-            parent = os.path.dirname(remote)
-            run_remote_cmd(
-                f"mkdir -p {shlex.quote(parent)}",
-                ssh_client)
-            sftp.put(local, remote)
+        files = [(local, remote, local_mode(local))
+                 for local, remote in targets]
+        upload(ssh_client, files, sudo_password)
 
         return ModuleResult(changed=True)

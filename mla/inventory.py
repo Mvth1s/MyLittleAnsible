@@ -32,23 +32,23 @@ def load_inventory(path):
         with open(path) as f:
             data = yaml.safe_load(f)
     except FileNotFoundError:
-        raise InventoryError(f"inventory introuvable : {path}") from None
+        raise InventoryError(f"inventory not found: {path}") from None
     except yaml.YAMLError as exc:
-        raise InventoryError(f"inventory YAML invalide : {exc}") from exc
+        raise InventoryError(f"invalid inventory YAML: {exc}") from exc
 
     # B. valider la structure
     if not isinstance(data, dict) or "hosts" not in data:
-        raise InventoryError("inventory invalide : clé 'hosts' absente")
+        raise InventoryError("invalid inventory: missing 'hosts' key")
     if not isinstance(data["hosts"], dict):
-        raise InventoryError("inventory invalide : 'hosts' doit être un dict")
+        raise InventoryError("invalid inventory: 'hosts' must be a dict")
 
     # C. construire les Host
     hosts = []
     for name, params in data["hosts"].items():
         if not isinstance(params, dict):
-            raise InventoryError(f"host {name} : définition invalide")
+            raise InventoryError(f"host {name}: invalid definition")
         if "ssh_address" not in params:
-            raise InventoryError(f"host {name} : ssh_address manquant")
+            raise InventoryError(f"host {name}: missing ssh_address")
         hosts.append(Host(
             name=name,
             address=params["ssh_address"],

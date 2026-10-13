@@ -6,7 +6,13 @@ Module sysctl : modifie un paramètre kernel
 import logging
 import shlex
 
-from mla.modules.base import BaseModule, ModuleError, ModuleResult
+from mla.modules.base import (
+    BaseModule,
+    ModuleError,
+    ModuleResult,
+    run_checked,
+    sudo_cmd,
+)
 from mla.ssh import run_remote_cmd
 
 logger = logging.getLogger()
@@ -20,9 +26,9 @@ class Sysctl(BaseModule):
     def _params(self):
         attribute = self.params.get("attribute")
         if not attribute:
-            raise ModuleError("sysctl : paramètre 'attribute' manquant")
+            raise ModuleError("sysctl: missing 'attribute' parameter")
         if "value" not in self.params:
-            raise ModuleError("sysctl : paramètre 'value' manquant")
+            raise ModuleError("sysctl: missing 'value' parameter")
         value = str(self.params["value"])
         permanent = self.params.get("permanent", False)
         return attribute, value, permanent
@@ -53,36 +59,22 @@ class Sysctl(BaseModule):
 
         if dry_run:
             logger.info(
-                "dry run : %s = %s (permanent=%s)",
+                "dry run: %s = %s (permanent=%s)",
                 attribute, value, permanent)
             return ModuleResult(changed=True)
 
         if not sudo_password:
             raise ModuleError(
-                "sysctl : mot de passe sudo requis mais absent de l'inventory"
-            )
-        password = shlex.quote(sudo_password)
+                "sysctl: sudo password required but missing from inventory")
 
         if not runtime_ok:
             action = f"sysctl -w {shlex.quote(f'{attribute}={value}')}"
-            cmd = f"printf '%s\\n' {password} | sudo -S {action}"
-            result = run_remote_cmd(cmd, ssh_client)
-            if result.exit_code != 0:
-                msg = (
-                    result.stderr or result.stdout or
-                    f"sysctl -w a échoué (code {result.exit_code})")
-                raise ModuleError(msg)
+            run_checked(sudo_cmd(action, sudo_password), ssh_client,
+                        "sysctl -w")
 
         if permanent and not persist_ok:
-            inner = f"echo {shlex.quote(line)} >> {CONF_FILE}"
-            action = "sh -c " + shlex.quote(inner)
-            cmd = f"printf '%s\\n' {password} | sudo -S {action}"
-            result = run_remote_cmd(cmd, ssh_client)
-            if result.exit_code != 0:
-                msg = (
-                    result.stderr or result.stdout or
-                    f"écriture de {CONF_FILE} a échoué "
-                    f"(code {result.exit_code})")
-                raise ModuleError(msg)
+            action = f"echo {shlex.quote(line)} >> {CONF_FILE}"
+            run_checked(sudo_cmd(action, sudo_password), ssh_client,
+                        f"writing {CONF_FILE}")
 
         return ModuleResult(changed=True)

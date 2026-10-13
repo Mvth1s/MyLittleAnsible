@@ -6,7 +6,13 @@ Module service : pilote un service systemd
 import logging
 import shlex
 
-from mla.modules.base import BaseModule, ModuleError, ModuleResult
+from mla.modules.base import (
+    BaseModule,
+    ModuleError,
+    ModuleResult,
+    run_checked,
+    sudo_cmd,
+)
 from mla.ssh import run_remote_cmd
 
 logger = logging.getLogger()
@@ -26,11 +32,11 @@ class Service(BaseModule):
         svc = self.params.get("name")
         if not svc:
             raise ModuleError(
-                "service : paramètre 'name' manquant")
+                "service: missing 'name' parameter")
         state = self.params.get("state")
         if state not in self.STATES:
             raise ModuleError(
-                f"service : state invalide : {state}")
+                f"service: invalid state: {state}")
         return svc, state
 
     def _is_active(self, ssh_client, svc):
@@ -63,23 +69,15 @@ class Service(BaseModule):
         if not need_change:
             return ModuleResult(changed=False)
 
-        cmd_verb = f"systemctl {verb} {shlex.quote(svc)}"
+        action = f"systemctl {verb} {shlex.quote(svc)}"
 
         if dry_run:
-            logger.info("dry run : %s", cmd_verb)
+            logger.info("dry run: %s", action)
             return ModuleResult(changed=True)
 
         if not sudo_password:
             raise ModuleError(
-                "service : mot de passe sudo requis mais absent de l'inventory"
-            )
+                "service: sudo password required but missing from inventory")
 
-        cmd = f"printf '%s\\n' {shlex.quote(sudo_password)} | " \
-            f"sudo -S {cmd_verb}"
-
-        result = run_remote_cmd(cmd, ssh_client)
-        if result.exit_code != 0:
-            msg = (result.stderr or result.stdout
-                   or f"systemctl a échoué (code {result.exit_code})")
-            raise ModuleError(msg)
+        run_checked(sudo_cmd(action, sudo_password), ssh_client, "systemctl")
         return ModuleResult(changed=True)

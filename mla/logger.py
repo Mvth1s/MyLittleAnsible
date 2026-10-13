@@ -31,7 +31,7 @@ def install_excepthook(debug=False):
             return
         if debug:
             # trace complète
-            logging.error("exception non gérée",
+            logging.error("unhandled exception",
                           exc_info=(exc_type, exc_value, exc_tb))
         else:
             # juste le message

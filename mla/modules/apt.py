@@ -5,7 +5,13 @@ Module apt : installe ou désinstalle un paquet APT (idempotent).
 import logging
 import shlex
 
-from mla.modules.base import BaseModule, ModuleError, ModuleResult
+from mla.modules.base import (
+    BaseModule,
+    ModuleError,
+    ModuleResult,
+    run_checked,
+    sudo_cmd,
+)
 from mla.ssh import run_remote_cmd
 
 logger = logging.getLogger()
@@ -20,10 +26,10 @@ class Apt(BaseModule):
         """
         name = self.params.get("name")
         if not name:
-            raise ModuleError("apt : paramètre 'name' manquant")
+            raise ModuleError("apt: missing 'name' parameter")
         state = self.params.get("state", "present")
         if state not in ("present", "absent"):
-            raise ModuleError(f"apt : state invalide : {state}")
+            raise ModuleError(f"apt: invalid state: {state}")
         return name, state
 
     def _is_installed(self, ssh_client, pkg):
@@ -40,28 +46,22 @@ class Apt(BaseModule):
         if not need_change:
             return ModuleResult(changed=False)
 
-        verb = "install" if state == "present" else "remove"
-
-        action = (f"env DEBIAN_FRONTEND=noninteractive "
-                  f"apt-get {verb} -y {shlex.quote(pkg)}")
+        quoted = shlex.quote(pkg)
+        if state == "present":
+            action = ("apt-get update -qq && "
+                      "DEBIAN_FRONTEND=noninteractive "
+                      f"apt-get install -y {quoted}")
+        else:
+            action = ("DEBIAN_FRONTEND=noninteractive "
+                      f"apt-get remove -y {quoted}")
 
         if dry_run:
-            logger.info("dry run : %s", action)
+            logger.info("dry run: %s", action)
             return ModuleResult(changed=True)
 
         if not sudo_password:
             raise ModuleError(
-                "apt : mot de passe sudo requis mais absent de l'inventory"
-            )
+                "apt: sudo password required but missing from inventory")
 
-        cmd = (f"printf '%s\\n' {shlex.quote(sudo_password)} | "
-               f"sudo -S {action}")
-
-        result = run_remote_cmd(cmd, ssh_client)
-        if result.exit_code != 0:
-            msg = result.stderr or \
-                result.stdout or \
-                f"apt a échoué (code {result.exit_code})"
-            raise ModuleError(msg)
-
+        run_checked(sudo_cmd(action, sudo_password), ssh_client, "apt")
         return ModuleResult(changed=True)

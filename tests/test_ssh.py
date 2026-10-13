@@ -93,7 +93,7 @@ def test_connect_wraps_ssh_exception():
     fake_client.connect.side_effect = paramiko.AuthenticationException("nope")
 
     with patch("mla.ssh.paramiko.SSHClient", return_value=fake_client):
-        with pytest.raises(SSHConnectionError, match="1.2.3.4"):
+        with pytest.raises(SSHConnectionError, match="^nope$"):
             connect(host)
 
 
@@ -103,7 +103,7 @@ def test_connect_wraps_os_error():
     fake_client.connect.side_effect = OSError("unreachable")
 
     with patch("mla.ssh.paramiko.SSHClient", return_value=fake_client):
-        with pytest.raises(SSHConnectionError, match="1.2.3.4"):
+        with pytest.raises(SSHConnectionError, match="^unreachable$"):
             connect(host)
 
 

@@ -3,7 +3,7 @@ import logging
 import pytest
 
 from mla.modules import MODULES
-from mla.modules.base import ModuleError, ModuleResult
+from mla.modules.base import ModuleError, ModuleResult, sudo_cmd
 from mla.modules.sysctl import CONF_FILE, Sysctl
 from mla.ssh import CmdResult
 
@@ -41,6 +41,7 @@ def run_sysctl(monkeypatch, params, dry_run=False, sudo_password=None,
                **run_kw):
     fake_run, calls = make_run(**run_kw)
     monkeypatch.setattr("mla.modules.sysctl.run_remote_cmd", fake_run)
+    monkeypatch.setattr("mla.modules.base.run_remote_cmd", fake_run)
     result = Sysctl(params).process(object(), dry_run=dry_run,
                                     sudo_password=sudo_password)
     return result, calls
@@ -117,7 +118,7 @@ def test_runtime_differs_sets_it(monkeypatch):
 
     assert result == ModuleResult(changed=True)
     assert sudo_calls(calls) == [
-        f"printf '%s\\n' {PASSWORD} | sudo -S sysctl -w {ATTR}=8192"]
+        sudo_cmd(f"sysctl -w {ATTR}=8192", PASSWORD)]
 
 
 def test_permanent_line_present_is_ok(monkeypatch):
@@ -139,7 +140,7 @@ def test_permanent_line_absent_writes_file_only(monkeypatch):
     assert result == ModuleResult(changed=True)
     sudo = sudo_calls(calls)
     assert len(sudo) == 1
-    assert "sudo -S sh -c " in sudo[0]
+    assert "sudo -S -p '' sh -c " in sudo[0]
     assert CONF_FILE in sudo[0]
     assert "sysctl -w" not in sudo[0]
 
@@ -170,7 +171,7 @@ def test_sysctl_w_failure_without_output_mentions_code(monkeypatch):
 
 
 def test_missing_sudo_password_raises_when_change_needed(monkeypatch):
-    with pytest.raises(ModuleError, match="mot de passe"):
+    with pytest.raises(ModuleError, match="sudo password"):
         run_sysctl(monkeypatch, {"attribute": ATTR, "value": 8192},
                    current="128")
 

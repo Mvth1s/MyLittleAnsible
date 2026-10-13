@@ -4,13 +4,14 @@ et pousse le résultat sur l'hôte.
 """
 
 import hashlib
-import io
-import jinja2
 import logging
 import os
 import shlex
 
-from mla.modules.base import BaseModule, ModuleError, ModuleResult
+import jinja2
+
+from mla.modules.base import BaseModule, ModuleError, ModuleResult, upload
+from mla.modules.copy import local_mode
 from mla.ssh import run_remote_cmd
 
 logger = logging.getLogger()
@@ -25,15 +26,15 @@ class Template(BaseModule):
         vars = self.params.get("vars", {})
         if not src or not dest:
             raise ModuleError(
-                "template: src et dest sont obligatoires"
+                "template: src and dest are required"
             )
         if not os.path.exists(src):
             raise ModuleError(
-                f"template: src introuvable : {src} "
+                f"template: src not found: {src}"
             )
         if not isinstance(vars, dict):
             raise ModuleError(
-                "template: vars doit être un dictionnaire"
+                "template: vars must be a dict"
             )
         return src, dest, vars
 
@@ -51,7 +52,7 @@ class Template(BaseModule):
                 text, undefined=jinja2.StrictUndefined).render(vars)
             return rendered
         except jinja2.TemplateError as exc:
-            raise ModuleError(f"template : {exc}")
+            raise ModuleError(f"template: {exc}")
 
     def _remote_matches(self, ssh_client, dest, digest):
         """
@@ -66,22 +67,17 @@ class Template(BaseModule):
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):
         src, dest, vars = self._params()
-        rendered = self._render(src, vars)
-        digest = hashlib.sha256(rendered.encode()).hexdigest()
+        rendered = self._render(src, vars).encode()
+        digest = hashlib.sha256(rendered).hexdigest()
 
         if self._remote_matches(ssh_client, dest, digest):
             return ModuleResult(changed=False)
 
         if dry_run:
-            logger.info("dry run : template %s -> %s", src, dest)
+            logger.info("dry run: template %s -> %s", src, dest)
             return ModuleResult(changed=True)
 
-        parent = os.path.dirname(dest)
-        run_remote_cmd(f"mkdir -p {shlex.quote(parent)}", ssh_client)
-
-        sftp = ssh_client.open_sftp()
-        file_obj = io.BytesIO(rendered.encode())
-        sftp.putfo(file_obj, dest)
-        sftp.close()
+        upload(ssh_client, [(rendered, dest, local_mode(src))],
+               sudo_password)
 
         return ModuleResult(changed=True)
