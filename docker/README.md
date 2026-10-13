@@ -1,6 +1,7 @@
 # Environnement de test — deux hôtes Debian + systemd
 
-Outillage de test local pour `mla`. **Ne fait pas partie du rendu.**
+Outillage de test local **optionnel** pour `mla` : utile pour essayer l'outil
+et vérifier l'idempotence, mais `mla` n'en dépend pas.
 Deux conteneurs Debian 12 (bookworm) qui bootent `systemd`, avec `sshd`, un
 utilisateur non privilégié `mla` (sudo avec mot de passe, comme sur
 l'environnement de correction), joignables en SSH depuis la machine hôte.
