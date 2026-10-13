@@ -1,0 +1,50 @@
+name: mla-test
+
+# Shared config for both hosts. `privileged` + the cgroup mount is what lets
+# systemd run as PID 1 on a cgroup v2 host (Fedora). `privileged` also runs the
+# container unconfined, which sidesteps SELinux denials on the bind mounts.
+x-debian-host: &debian-host
+  build:
+    context: .
+  privileged: true
+  cgroup: host
+  stop_signal: SIGRTMIN+3
+  tmpfs:
+    - /run
+    - /run/lock
+  environment:
+    MLA_USER: mla
+
+services:
+  host1:
+    <<: *debian-host
+    container_name: mla-host1
+    hostname: host1
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ${MLA_PUBKEY:-${HOME}/.ssh/id_ed25519_mla.pub}:/pubkey.pub:ro
+    ports:
+      - "127.0.0.1:2221:22"
+    networks:
+      mla_net:
+        ipv4_address: 172.28.0.11
+
+  host2:
+    <<: *debian-host
+    container_name: mla-host2
+    hostname: host2
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ${MLA_PUBKEY:-${HOME}/.ssh/id_ed25519_mla.pub}:/pubkey.pub:ro
+    ports:
+      - "127.0.0.1:2222:22"
+    networks:
+      mla_net:
+        ipv4_address: 172.28.0.12
+
+networks:
+  mla_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
