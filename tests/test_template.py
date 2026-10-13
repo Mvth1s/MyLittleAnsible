@@ -1,5 +1,4 @@
 import hashlib
-import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -193,13 +192,14 @@ def test_process_with_sudo_stages_and_installs(template_file, monkeypatch):
     assert calls[-3:] == ["mktemp -d", install, "rm -rf /tmp/tmp.mla42"]
 
 
-def test_process_dry_run_does_not_push(template_file, monkeypatch, caplog):
-    caplog.set_level(logging.INFO)
+def test_process_dry_run_does_not_push(template_file, monkeypatch):
+    template_file.chmod(0o644)
     patch_run(monkeypatch)
     ssh, _ = make_ssh()
 
     result = Template({"src": str(template_file), **PARAMS}).process(
-        ssh, dry_run=True)
+        ssh, dry_run=True, sudo_password="s3cret")
 
-    assert result == ModuleResult(changed=True)
+    assert result == ModuleResult(changed=True, commands=[
+        f"install -D -m 0644 {template_file} /etc/nginx/default"])
     ssh.open_sftp.assert_not_called()

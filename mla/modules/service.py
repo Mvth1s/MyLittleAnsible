@@ -3,7 +3,6 @@ Module service : pilote un service systemd
 (start/stop/restart/enable/disable).
 """
 
-import logging
 import shlex
 
 from mla.modules.base import (
@@ -14,8 +13,6 @@ from mla.modules.base import (
     sudo_cmd,
 )
 from mla.ssh import run_remote_cmd
-
-logger = logging.getLogger()
 
 
 class Service(BaseModule):
@@ -72,8 +69,7 @@ class Service(BaseModule):
         action = f"systemctl {verb} {shlex.quote(svc)}"
 
         if dry_run:
-            logger.info("dry run: %s", action)
-            return ModuleResult(changed=True)
+            return ModuleResult(changed=True, commands=[action])
 
         if not sudo_password:
             raise ModuleError(

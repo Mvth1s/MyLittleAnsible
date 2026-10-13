@@ -3,7 +3,6 @@ Module Copy : copie un fichier ou dossier local vers l'hôte (idempotent).
 """
 
 import hashlib
-import logging
 import os
 import posixpath
 import shlex
@@ -17,10 +16,9 @@ from mla.modules.base import (
     run_checked,
     sudo_cmd,
     upload,
+    upload_commands,
 )
 from mla.ssh import run_remote_cmd
-
-logger = logging.getLogger()
 
 
 def local_mode(path):
@@ -30,14 +28,20 @@ def local_mode(path):
     return f"{stat.S_IMODE(os.stat(path).st_mode):04o}"
 
 
-def backup_remote(ssh_client, dest, sudo_password=None):
+def backup_command(dest):
     """
-    Copie 'dest' en 'dest.<horodatage>' s'il existe sur l'hôte.
+    Commande copiant 'dest' en 'dest.<horodatage>' s'il existe sur l'hôte.
     """
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     quoted = shlex.quote(dest)
-    cmd = (f"if [ -e {quoted} ]; then "
-           f"cp -a {quoted} {shlex.quote(f'{dest}.{ts}')}; fi")
+    return (f"if [ -e {quoted} ]; then "
+            f"cp -a {quoted} {shlex.quote(f'{dest}.{ts}')}; fi")
+
+
+def backup_remote(ssh_client, cmd, sudo_password=None):
+    """
+    Exécute la commande de backup 'cmd', via sudo si possible.
+    """
     if sudo_password:
         cmd = sudo_cmd(cmd, sudo_password)
     run_checked(cmd, ssh_client, "backup")
@@ -103,17 +107,18 @@ class Copy(BaseModule):
         if not changed:
             return ModuleResult(changed=False)
 
-        if dry_run:
-            logger.info(
-                "dry run: copy %s to %s (%d file(s))",
-                src, dest, len(targets))
-            return ModuleResult(changed=True)
-
-        if backup:
-            backup_remote(ssh_client, dest, sudo_password)
-
         files = [(local, remote, local_mode(local))
                  for local, remote in targets]
+        backup_cmd = backup_command(dest) if backup else None
+
+        if dry_run:
+            commands = [backup_cmd] if backup_cmd else []
+            commands += upload_commands(files, sudo_password)
+            return ModuleResult(changed=True, commands=commands)
+
+        if backup_cmd:
+            backup_remote(ssh_client, backup_cmd, sudo_password)
+
         upload(ssh_client, files, sudo_password)
 
         return ModuleResult(changed=True)

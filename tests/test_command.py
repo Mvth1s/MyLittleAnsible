@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 
 from mla.modules import MODULES
@@ -97,8 +95,7 @@ def test_process_error_without_output_mentions_exit_code(monkeypatch):
         mod.process(ssh_client=object())
 
 
-def test_dry_run_does_not_execute(monkeypatch, caplog):
-    caplog.set_level(logging.INFO)
+def test_dry_run_does_not_execute(monkeypatch):
     called = []
     monkeypatch.setattr("mla.modules.command.run_remote_cmd",
                         lambda cmd, ssh_client: called.append(cmd))
@@ -106,6 +103,18 @@ def test_dry_run_does_not_execute(monkeypatch, caplog):
 
     result = mod.process(ssh_client=object(), dry_run=True)
 
-    assert result == ModuleResult(changed=True)
+    assert result == ModuleResult(
+        changed=True, commands=["/bin/bash -c 'echo hello'"])
     assert called == []
-    assert "/bin/bash -c 'echo hello'" in caplog.text
+
+
+def test_command_is_stripped_before_building():
+    mod = Command({"command": "\n  touch /tmp/x\ntest -f /tmp/x\n  "})
+
+    assert mod._build_command() == (
+        "/bin/bash -c 'touch /tmp/x\ntest -f /tmp/x'")
+
+
+def test_blank_command_is_missing():
+    with pytest.raises(ModuleError, match="command"):
+        Command({"command": "  \n "})._build_command()

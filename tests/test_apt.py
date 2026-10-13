@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 
 from mla.modules import MODULES
@@ -126,16 +124,26 @@ def test_missing_sudo_password_raises_when_change_needed(monkeypatch):
         Apt({"name": "nginx"}).process(ssh_client=object())
 
 
-def test_dry_run_does_not_execute_action(monkeypatch, caplog):
-    caplog.set_level(logging.INFO)
+def test_dry_run_does_not_execute_action(monkeypatch):
     fake_run, calls = make_run(installed=False)
     patch_run(monkeypatch, fake_run)
 
     result = Apt({"name": "nginx"}).process(ssh_client=object(), dry_run=True)
 
-    assert result == ModuleResult(changed=True)
+    assert result == ModuleResult(changed=True, commands=[
+        "apt-get update -qq && "
+        "DEBIAN_FRONTEND=noninteractive apt-get install -y nginx"])
     assert not any("apt-get" in c for c in calls)
-    assert "apt-get install -y nginx" in caplog.text
+
+
+def test_dry_run_never_exposes_sudo_password(monkeypatch):
+    fake_run, _ = make_run(installed=False)
+    patch_run(monkeypatch, fake_run)
+
+    result = Apt({"name": "nginx"}).process(
+        ssh_client=object(), dry_run=True, sudo_password=PASSWORD)
+
+    assert not any(PASSWORD in c for c in result.commands)
 
 
 def test_install_refreshes_index_under_single_sudo(monkeypatch):

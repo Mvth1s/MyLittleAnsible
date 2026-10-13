@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import yaml
 
 from mla import ssh
-from mla.logger import truncate_output
+from mla.logger import escape_newlines, register_secret, truncate_output
 from mla.modules.base import ModuleError
 
 logger = logging.getLogger()
@@ -87,6 +87,9 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
         if todo.module not in registry:
             raise TodosError(f"unknown module: {todo.module}")
 
+    for host in hosts:
+        register_secret(host.password)
+
     addresses = [h.address for h in hosts]
     logger.info("processing %d tasks on hosts: %s",
                 len(todos), ", ".join(addresses))
@@ -138,6 +141,11 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                                  truncate_output(error))
                     reports[host.address].fail += 1
                 else:
+                    if dry_run:
+                        for command in result.commands:
+                            logger.info("host=%s dry run: %s",
+                                        host.address,
+                                        escape_newlines(command))
                     status = "CHANGED" if result.changed else "OK"
                     logger.info("[%d] host=%s op=%s status=%s", i,
                                 host.address, todo.module, status)

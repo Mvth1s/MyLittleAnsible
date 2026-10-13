@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 
 from mla.modules import MODULES
@@ -194,12 +192,11 @@ def test_missing_sudo_password_raises_when_change_needed(monkeypatch):
                     active=False)
 
 
-def test_dry_run_does_not_execute(monkeypatch, caplog):
-    caplog.set_level(logging.INFO)
+def test_dry_run_does_not_execute(monkeypatch):
     result, calls = run_service(
         monkeypatch, {"name": "nginx", "state": "started"},
         dry_run=True, active=False)
 
-    assert result == ModuleResult(changed=True)
+    assert result == ModuleResult(changed=True,
+                                  commands=["systemctl start nginx"])
     assert action_calls(calls) == []
-    assert "systemctl start nginx" in caplog.text

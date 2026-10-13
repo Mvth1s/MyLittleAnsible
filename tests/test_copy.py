@@ -1,5 +1,4 @@
 import hashlib
-import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -173,16 +172,32 @@ def test_process_no_change_skips_sftp(one_file, monkeypatch):
     ssh.open_sftp.assert_not_called()
 
 
-def test_process_dry_run_does_not_copy(one_file, monkeypatch, caplog):
-    caplog.set_level(logging.INFO)
-    patch_run(monkeypatch)
+def test_process_dry_run_does_not_copy(one_file, monkeypatch):
+    calls = patch_run(monkeypatch)
     ssh, _ = make_ssh()
 
-    result = Copy({"src": str(one_file), "dest": "/dst"}).process(
+    result = Copy({"src": str(one_file), "dest": "/dst/index.html"}).process(
         ssh, dry_run=True)
 
-    assert result == ModuleResult(changed=True)
+    assert result == ModuleResult(changed=True, commands=[
+        "mkdir -p /dst", f"sftp put {one_file} /dst/index.html"])
     ssh.open_sftp.assert_not_called()
+    assert all(c.startswith("sha256sum") for c in calls)
+
+
+def test_process_dry_run_with_sudo_and_backup(one_file, monkeypatch):
+    calls = patch_run(monkeypatch)
+    ssh, _ = make_ssh()
+
+    result = Copy(
+        {"src": str(one_file), "dest": "/dst/index.html", "backup": True}
+    ).process(ssh, dry_run=True, sudo_password=PASSWORD)
+
+    backup, install = result.commands
+    assert backup.startswith("if [ -e /dst/index.html ]; then cp -a ")
+    assert install == f"install -D -m 0640 {one_file} /dst/index.html"
+    assert not any(PASSWORD in c for c in result.commands)
+    assert all(c.startswith("sha256sum") for c in calls)
 
 
 # --- sans sudo : mkdir -p + put direct

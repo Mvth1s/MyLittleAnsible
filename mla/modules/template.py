@@ -4,17 +4,20 @@ et pousse le résultat sur l'hôte.
 """
 
 import hashlib
-import logging
 import os
 import shlex
 
 import jinja2
 
-from mla.modules.base import BaseModule, ModuleError, ModuleResult, upload
+from mla.modules.base import (
+    BaseModule,
+    ModuleError,
+    ModuleResult,
+    upload,
+    upload_commands,
+)
 from mla.modules.copy import local_mode
 from mla.ssh import run_remote_cmd
-
-logger = logging.getLogger()
 
 
 class Template(BaseModule):
@@ -73,11 +76,13 @@ class Template(BaseModule):
         if self._remote_matches(ssh_client, dest, digest):
             return ModuleResult(changed=False)
 
+        mode = local_mode(src)
         if dry_run:
-            logger.info("dry run: template %s -> %s", src, dest)
-            return ModuleResult(changed=True)
+            # le rendu est en mémoire : on affiche le template source
+            return ModuleResult(
+                changed=True,
+                commands=upload_commands([(src, dest, mode)], sudo_password))
 
-        upload(ssh_client, [(rendered, dest, local_mode(src))],
-               sudo_password)
+        upload(ssh_client, [(rendered, dest, mode)], sudo_password)
 
         return ModuleResult(changed=True)

@@ -3,13 +3,10 @@ Module command : exécute une commande shell arbitraire
 sur l'hôte.
 """
 
-import logging
 import shlex
 
 from mla.modules.base import BaseModule, ModuleError, ModuleResult
 from mla.ssh import run_remote_cmd
-
-logger = logging.getLogger()
 
 
 class Command(BaseModule):
@@ -21,7 +18,7 @@ class Command(BaseModule):
         exécuter à distance.
         Lève ModuleError si le paramètre 'command' est absent.
         """
-        command = self.params.get("command")
+        command = str(self.params.get("command") or "").strip()
         if not command:
             raise ModuleError("command: missing 'command' parameter")
         shell = self.params.get("shell", "/bin/bash")
@@ -31,8 +28,7 @@ class Command(BaseModule):
         full_cmd = self._build_command()
 
         if dry_run:
-            logger.info("dry run: %s", full_cmd)
-            return ModuleResult(changed=True)
+            return ModuleResult(changed=True, commands=[full_cmd])
 
         result = run_remote_cmd(full_cmd, ssh_client)
 

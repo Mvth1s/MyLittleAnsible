@@ -7,7 +7,7 @@ import io
 import logging
 import posixpath
 import shlex
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from mla.ssh import run_remote_cmd
 
@@ -23,6 +23,8 @@ class ModuleError(Exception):
 @dataclass
 class ModuleResult:
     changed: bool
+    # en dry-run : commandes qui auraient été exécutées (sans mot de passe)
+    commands: list[str] = field(default_factory=list)
 
 
 class BaseModule:
@@ -71,6 +73,25 @@ def _put(sftp, source, remote):
         sftp.putfo(io.BytesIO(source), remote)
     else:
         sftp.put(source, remote)
+
+
+def upload_commands(files, sudo_password=None):
+    """
+    Décrit ce que ferait 'upload' pour 'files' = [(local, remote, mode)],
+    pour le dry-run (le dossier temporaire n'existe pas encore : on
+    affiche le fichier local à sa place).
+    """
+    commands = []
+    for local, remote, mode in files:
+        quoted = shlex.quote(remote)
+        if sudo_password:
+            commands.append(
+                f"install -D -m {mode} {shlex.quote(local)} {quoted}")
+        else:
+            parent = shlex.quote(posixpath.dirname(remote))
+            commands.append(f"mkdir -p {parent}")
+            commands.append(f"sftp put {shlex.quote(local)} {quoted}")
+    return commands
 
 
 def upload(ssh_client, files, sudo_password=None):

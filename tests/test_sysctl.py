@@ -1,5 +1,3 @@
-import logging
-
 import pytest
 
 from mla.modules import MODULES
@@ -176,12 +174,30 @@ def test_missing_sudo_password_raises_when_change_needed(monkeypatch):
                    current="128")
 
 
-def test_dry_run_executes_nothing(monkeypatch, caplog):
-    caplog.set_level(logging.INFO)
+def test_dry_run_executes_nothing(monkeypatch):
     result, calls = run_sysctl(
         monkeypatch, {"attribute": ATTR, "value": 8192},
         dry_run=True, current="128")
 
-    assert result == ModuleResult(changed=True)
+    assert result == ModuleResult(changed=True,
+                                  commands=[f"sysctl -w {ATTR}=8192"])
     assert sudo_calls(calls) == []
-    assert ATTR in caplog.text
+
+
+def test_dry_run_lists_only_needed_commands(monkeypatch):
+    result, _ = run_sysctl(
+        monkeypatch, {"attribute": ATTR, "value": 8192, "permanent": True},
+        dry_run=True, current="8192", persisted=False)
+
+    assert result.commands == [
+        f"echo '{ATTR} = 8192' >> {CONF_FILE}"]
+
+
+def test_dry_run_lists_runtime_and_permanent(monkeypatch):
+    result, _ = run_sysctl(
+        monkeypatch, {"attribute": ATTR, "value": 8192, "permanent": True},
+        dry_run=True, current="128", persisted=False)
+
+    assert result.commands == [
+        f"sysctl -w {ATTR}=8192",
+        f"echo '{ATTR} = 8192' >> {CONF_FILE}"]

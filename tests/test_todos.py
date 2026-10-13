@@ -396,3 +396,80 @@ def test_unexpected_exception_traceback_only_in_debug(fake_connect, caplog):
     traced = [r for r in caplog.records if r.exc_info]
     assert len(traced) == 1
     assert traced[0].levelno == logging.DEBUG
+
+
+def test_dry_run_commands_are_logged_with_host_prefix(fake_connect, caplog):
+    caplog.set_level(logging.INFO)
+
+    class _Planner:
+        def __init__(self, params):
+            pass
+
+        def process(self, ssh_client, dry_run=False, sudo_password=None):
+            return ModuleResult(changed=True,
+                                commands=["systemctl start nginx",
+                                          "systemctl enable nginx"])
+
+    hosts = [make_host("10.0.0.1"), make_host("10.0.0.2")]
+    run_todos([Todo(module="svc")], hosts, registry={"svc": _Planner},
+              dry_run=True)
+
+    dry = [m for m in caplog.messages if "dry run:" in m]
+    assert dry == [
+        "host=10.0.0.1 dry run: systemctl start nginx",
+        "host=10.0.0.1 dry run: systemctl enable nginx",
+        "host=10.0.0.2 dry run: systemctl start nginx",
+        "host=10.0.0.2 dry run: systemctl enable nginx",
+    ]
+
+
+def test_ssh_password_is_registered_as_secret(fake_connect, monkeypatch):
+    secrets = set()
+    monkeypatch.setattr("mla.logger._secrets", secrets)
+
+    run_todos([Todo(module="fake")],
+              [make_host("10.0.0.1", password="s3cret"),
+               make_host("10.0.0.2")],
+              registry={"fake": make_module()})
+
+    assert secrets == {"s3cret"}
+
+
+def test_error_line_never_shows_ssh_password(fake_connect, monkeypatch,
+                                             caplog):
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr("mla.logger._secrets", set())
+    registry = {"boom": make_module(error="sudo: wrong password s3cret")}
+
+    run_todos([Todo(module="boom")],
+              [make_host("10.0.0.1", password="s3cret")], registry=registry)
+
+    assert "s3cret" not in caplog.text
+
+
+def test_dry_run_multiline_command_uses_literal_backslash_n(
+        fake_connect, caplog):
+    caplog.set_level(logging.INFO)
+
+    class _Planner:
+        def __init__(self, params):
+            pass
+
+        def process(self, ssh_client, dry_run=False, sudo_password=None):
+            return ModuleResult(changed=True,
+                                commands=["/bin/bash -c 'a\nb'"])
+
+    run_todos([Todo(module="cmd")], [make_host("10.0.0.1")],
+              registry={"cmd": _Planner}, dry_run=True)
+
+    assert "host=10.0.0.1 dry run: /bin/bash -c 'a\\nb'" in caplog.messages
+
+
+def test_multiline_error_is_flattened_with_pipe(fake_connect, caplog):
+    caplog.set_level(logging.INFO)
+    registry = {"boom": make_module(error="Job failed.\nSee status.\n")}
+
+    run_todos([Todo(module="boom")], [make_host("10.0.0.1")],
+              registry=registry)
+
+    assert "host=10.0.0.1 Job failed. | See status." in caplog.messages
