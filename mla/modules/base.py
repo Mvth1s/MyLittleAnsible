@@ -45,26 +45,34 @@ class BaseModule:
         raise NotImplementedError
 
 
-def sudo_cmd(command, password):
+def sudo_cmd(command):
     """
-    Enveloppe 'command' dans un unique sudo alimenté par 'password'
-    sur stdin, sans prompt (-p '') pour ne pas polluer la sortie.
+    Enveloppe 'command' dans un unique sudo qui lit le mot de passe sur
+    stdin (-S), sans prompt (-p '') pour ne pas polluer la sortie.
     """
-    return (f"printf '%s\\n' {shlex.quote(password)} | "
-            f"sudo -S -p '' sh -c {shlex.quote(command)}")
+    return f"sudo -S -p '' sh -c {shlex.quote(command)}"
 
 
-def run_checked(command, ssh_client, what):
+def run_checked(command, ssh_client, what, stdin_data=None):
     """
     Exécute 'command' et retourne son CmdResult.
     Lève ModuleError si le code retour est non nul.
     """
-    result = run_remote_cmd(command, ssh_client)
+    result = run_remote_cmd(command, ssh_client, stdin_data=stdin_data)
     if result.exit_code != 0:
         raise ModuleError(
             result.stderr.strip() or result.stdout.strip()
             or f"{what} failed (exit code {result.exit_code})")
     return result
+
+
+def run_sudo(command, ssh_client, password, what):
+    """
+    Exécute 'command' via sudo, mot de passe envoyé sur stdin (jamais
+    dans la ligne de commande, donc invisible dans 'ps' sur l'hôte).
+    """
+    return run_checked(sudo_cmd(command), ssh_client, what,
+                       stdin_data=f"{password}\n")
 
 
 def _put(sftp, source, remote):
@@ -126,8 +134,8 @@ def upload(ssh_client, files, sudo_password=None):
                 installs.append(
                     f"install -D -m {mode} {shlex.quote(staged)} "
                     f"{shlex.quote(remote)}")
-        run_checked(sudo_cmd(" && ".join(installs), sudo_password),
-                    ssh_client, "install")
+        run_sudo(" && ".join(installs), ssh_client, sudo_password,
+                 "install")
         done = True
     finally:
         cleanup = run_remote_cmd(f"rm -rf {shlex.quote(tmpdir)}", ssh_client)

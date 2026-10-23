@@ -258,3 +258,27 @@ def test_run_remote_cmd_reports_non_zero_exit_code():
 
     assert result.exit_code == 1
     assert result.stderr == "command not found\n"
+
+
+def test_run_remote_cmd_sends_stdin_data_and_closes_it():
+    fake_client = MagicMock()
+    fake_stdin, fake_stdout, fake_stderr = _fake_exec_command(b"", 0)
+    fake_client.exec_command.return_value = (
+        fake_stdin, fake_stdout, fake_stderr)
+
+    run_remote_cmd("sudo -S true", fake_client, stdin_data="s3cret\n")
+
+    fake_client.exec_command.assert_called_once_with("sudo -S true")
+    fake_stdin.write.assert_called_once_with("s3cret\n")
+    fake_stdin.channel.shutdown_write.assert_called_once()
+
+
+def test_run_remote_cmd_without_stdin_data_writes_nothing():
+    fake_client = MagicMock()
+    fake_stdin, fake_stdout, fake_stderr = _fake_exec_command(b"", 0)
+    fake_client.exec_command.return_value = (
+        fake_stdin, fake_stdout, fake_stderr)
+
+    run_remote_cmd("true", fake_client)
+
+    fake_stdin.write.assert_not_called()

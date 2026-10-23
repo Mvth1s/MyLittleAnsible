@@ -49,7 +49,7 @@ def test_build_command_empty_command_raises():
 def test_process_success_returns_changed(monkeypatch):
     calls = []
 
-    def fake_run(cmd, ssh_client):
+    def fake_run(cmd, ssh_client, stdin_data=None):
         calls.append(cmd)
         return CmdResult(stdout="ok", stderr="", exit_code=0)
 
@@ -63,7 +63,7 @@ def test_process_success_returns_changed(monkeypatch):
 
 
 def test_process_non_zero_exit_raises_module_error(monkeypatch):
-    def fake_run(cmd, ssh_client):
+    def fake_run(cmd, ssh_client, stdin_data=None):
         return CmdResult(stdout="", stderr="boom", exit_code=1)
 
     monkeypatch.setattr("mla.modules.command.run_remote_cmd", fake_run)
@@ -74,7 +74,7 @@ def test_process_non_zero_exit_raises_module_error(monkeypatch):
 
 
 def test_process_error_falls_back_to_stdout(monkeypatch):
-    def fake_run(cmd, ssh_client):
+    def fake_run(cmd, ssh_client, stdin_data=None):
         return CmdResult(stdout="details", stderr="", exit_code=2)
 
     monkeypatch.setattr("mla.modules.command.run_remote_cmd", fake_run)
@@ -85,7 +85,7 @@ def test_process_error_falls_back_to_stdout(monkeypatch):
 
 
 def test_process_error_without_output_mentions_exit_code(monkeypatch):
-    def fake_run(cmd, ssh_client):
+    def fake_run(cmd, ssh_client, stdin_data=None):
         return CmdResult(stdout="", stderr="", exit_code=5)
 
     monkeypatch.setattr("mla.modules.command.run_remote_cmd", fake_run)

@@ -200,7 +200,7 @@ def make_ssh():
 def patch_run(monkeypatch, remote_hash=None):
     calls = []
 
-    def fake_run(cmd, c):
+    def fake_run(cmd, c, stdin_data=None):
         calls.append(cmd)
         if cmd.startswith("sha256sum"):
             if remote_hash is None:
@@ -253,7 +253,7 @@ def test_process_with_sudo_stages_and_installs(template_file, monkeypatch):
 
     assert sftp.putfo.call_args.args[1] == "/tmp/tmp.mla42/0"
     install = sudo_cmd(
-        "install -D -m 0644 /tmp/tmp.mla42/0 /etc/nginx/default", "s3cret")
+        "install -D -m 0644 /tmp/tmp.mla42/0 /etc/nginx/default")
     assert calls[-3:] == ["mktemp -d", install, "rm -rf /tmp/tmp.mla42"]
 
 
