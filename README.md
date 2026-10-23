@@ -7,7 +7,7 @@ Un mini-Ansible écrit en Python : `mla` configure des serveurs Linux par SSH
 
 ## Contexte
 
-Projet réalisé en binôme pour le module TIC-NUX4 de l'ETNA. L'objectif était de
+Projet réalisé seul pour le module TIC-NUX4 de l'ETNA. L'objectif était de
 reconstruire le cœur d'un outil d'*infrastructure as code* comme Ansible :
 décrire l'état voulu des machines (paquets installés, services, fichiers,
 paramètres du noyau…) et laisser l'outil faire converger chaque hôte, sans
@@ -332,8 +332,7 @@ chaque push et pull request.
 
 ## Auteurs
 
-- [Mvth1s](https://github.com/Mvth1s)
-- aguado_m
+Mathis Aguado ([@Mvth1s](https://github.com/Mvth1s))
 
 ## Licence
 
