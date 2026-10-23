@@ -93,6 +93,17 @@ def test_paramiko_logger_is_quiet():
     assert r.stdout.strip() == str(logging.WARNING), repr(r.stdout)
 
 
+def test_paramiko_logger_stays_quiet_in_debug():
+    r = _run(
+        "import logging; from mla.logger import configure_logging;"
+        " configure_logging(debug=True);"
+        " print(logging.getLogger('paramiko').level,"
+        " logging.getLogger().level)"
+    )
+    assert r.stdout.split() == [str(logging.WARNING), str(logging.DEBUG)], \
+        repr(r.stdout)
+
+
 def test_truncate_output():
     assert truncate_output(None) == ""
     assert truncate_output("") == ""

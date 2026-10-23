@@ -76,8 +76,8 @@ def configure_logging(debug=False):
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(SafeFormatter(LOG_FORMAT))
     logging.basicConfig(level=level, handlers=[handler])
-    logging.getLogger("paramiko").setLevel(
-        logging.DEBUG if debug else logging.WARNING)
+    # même en --debug : la trace SSH de paramiko noierait les logs utiles
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
     install_excepthook(debug=debug)
 
 
