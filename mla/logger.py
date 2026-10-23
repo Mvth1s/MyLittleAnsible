@@ -1,3 +1,8 @@
+"""
+Configuration du logging : format horodaté du sujet, secrets masqués,
+messages sur une ligne, stack traces seulement en --debug.
+"""
+
 import logging
 import sys
 
@@ -52,6 +57,9 @@ class SafeFormatter(logging.Formatter):
 
     def format(self, record):
         # copie : ne pas modifier le record vu par les autres handlers
+        """
+        Formate 'record' sur une ligne, secrets masqués.
+        """
         record = logging.makeLogRecord(record.__dict__)
         record.msg = flatten(record.getMessage())
         record.args = None

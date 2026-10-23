@@ -22,12 +22,18 @@ class TodosError(Exception):
 
 @dataclass
 class Todo:
+    """
+    Une tâche du playbook : nom du module et ses paramètres.
+    """
     module: str
     params: dict = field(default_factory=dict)
 
 
 @dataclass
 class HostReport:
+    """
+    Compteurs du récapitulatif d'un hôte (ok, changed, fail).
+    """
     ok: int = 0
     changed: int = 0
     fail: int = 0

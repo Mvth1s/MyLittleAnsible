@@ -26,9 +26,15 @@ DEFINED_TESTS = ("defined", "undefined")
 
 
 class Template(BaseModule):
+    """
+    Module template : rend un template Jinja2 et le pousse sur l'hôte.
+    """
     name = "template"
 
     def _params(self):
+        """
+        Retourne (src, dest, template_vars) validés, ou lève ModuleError.
+        """
         src = self.params.get("src")
         dest = self.params.get("dest")
         vars = self.params.get("vars", {})
@@ -108,6 +114,10 @@ class Template(BaseModule):
         return result.stdout.split()[0] == digest
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):
+        """
+        Pousse le rendu s'il diffère du fichier distant.
+        Les variables manquantes sont remontées dans 'warnings'.
+        """
         src, dest, vars = self._params()
         rendered = self._render(src, vars).encode()
         digest = hashlib.sha256(rendered).hexdigest()

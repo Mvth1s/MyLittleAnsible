@@ -17,10 +17,17 @@ CONF_FILE = "/etc/sysctl.d/99-mla.conf"
 
 
 class Sysctl(BaseModule):
+    """
+    Module sysctl : modifie un paramètre kernel, éventuellement de
+    façon permanente.
+    """
     name = "sysctl"
     DEFAULTS = {"permanent": False}
 
     def _params(self):
+        """
+        Retourne (attribute, value normalisée, permanent), ou lève ModuleError.
+        """
         attribute = self.params.get("attribute")
         if not attribute:
             raise ModuleError("sysctl: missing 'attribute' parameter")
@@ -51,6 +58,9 @@ class Sysctl(BaseModule):
         return self._normalize(result.stdout)
 
     def _line_persisted(self, ssh_client, line):
+        """
+        True si 'line' figure telle quelle dans CONF_FILE.
+        """
         cmd = f"grep -qxF {shlex.quote(line)} {CONF_FILE}"
         return run_remote_cmd(cmd, ssh_client).exit_code == 0
 
@@ -66,6 +76,9 @@ class Sysctl(BaseModule):
                 f" && echo {shlex.quote(line)} >> {CONF_FILE}")
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):
+        """
+        Applique la valeur runtime et/ou permanente si elle diffère.
+        """
         attribute, value, permanent = self._params()
         line = f"{attribute} = {value}"
 

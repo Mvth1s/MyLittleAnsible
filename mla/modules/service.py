@@ -15,6 +15,9 @@ from mla.ssh import run_remote_cmd
 
 
 class Service(BaseModule):
+    """
+    Module service : pilote l'état d'un service systemd.
+    """
     name = "service"
     STATES = (
         "started",
@@ -25,6 +28,9 @@ class Service(BaseModule):
     )
 
     def _params(self):
+        """
+        Retourne (name, state) validés, ou lève ModuleError.
+        """
         svc = self.params.get("name")
         if not svc:
             raise ModuleError(
@@ -36,14 +42,23 @@ class Service(BaseModule):
         return svc, state
 
     def _is_active(self, ssh_client, svc):
+        """
+        True si le service 'svc' tourne ('systemctl is-active').
+        """
         cmd = f"systemctl is-active {shlex.quote(svc)}"
         return run_remote_cmd(cmd, ssh_client).exit_code == 0
 
     def _is_enabled(self, ssh_client, svc):
+        """
+        True si le service 'svc' est activé au boot ('systemctl is-enabled').
+        """
         cmd = f"systemctl is-enabled {shlex.quote(svc)}"
         return run_remote_cmd(cmd, ssh_client).exit_code == 0
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):
+        """
+        Applique 'state' si l'état courant du service diffère.
+        """
         svc, state = self._params()
         match state:
             case "started":
