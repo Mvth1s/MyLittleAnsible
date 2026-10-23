@@ -16,7 +16,8 @@ class InventoryError(Exception):
 class Host:
     name: str
     address: str
-    port: int = 22
+    # None : ~/.ssh/config, puis 22, décident à la connexion
+    port: int | None = None
     user: str | None = None
     password: str | None = None
     key_file: str | None = None
@@ -52,7 +53,7 @@ def load_inventory(path):
         hosts.append(Host(
             name=name,
             address=params["ssh_address"],
-            port=params.get("ssh_port", 22),
+            port=params.get("ssh_port"),
             user=params.get("ssh_user"),
             password=params.get("ssh_password"),
             key_file=params.get("ssh_key_file"),

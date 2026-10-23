@@ -72,10 +72,12 @@ def test_valid_inventory_returns_expected_hosts():
     ]
 
 
-def test_default_port_is_22(tmp_path):
+def test_port_is_none_when_absent(tmp_path):
+    # None : ~/.ssh/config puis 22 décident au moment de la connexion
     f = tmp_path / "inv.yml"
     f.write_text("hosts:\n  webserver:\n    ssh_address: 10.0.0.1\n")
 
     hosts = load_inventory(str(f))
 
     assert hosts == [Host(name="webserver", address="10.0.0.1")]
+    assert hosts[0].port is None

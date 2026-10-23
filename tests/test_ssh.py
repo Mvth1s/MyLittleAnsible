@@ -8,9 +8,24 @@ from mla.ssh import (
     CmdResult,
     SSHConnectionError,
     _build_connect_kwargs,
+    _resolve_target,
     connect,
+    load_ssh_config,
     run_remote_cmd,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path, monkeypatch):
+    """HOME vide : le ~/.ssh/config réel ne doit pas influencer les tests."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    return tmp_path
+
+
+def write_ssh_config(home, text):
+    ssh_dir = home / ".ssh"
+    ssh_dir.mkdir(exist_ok=True)
+    (ssh_dir / "config").write_text(text)
 
 
 # --- _build_connect_kwargs : fonction pure, pas de réseau -----------------
@@ -66,7 +81,94 @@ def test_key_file_tilde_is_expanded(monkeypatch):
     assert kwargs["key_filename"] == "/home/tester/.ssh/id_ed25519"
 
 
+def test_config_user_is_used_when_inventory_has_none(monkeypatch):
+    monkeypatch.setattr("getpass.getuser", lambda: "bob")
+    host = Host(name="w", address="1.2.3.4")
+
+    assert _build_connect_kwargs(host, {"user": "carol"}) == {
+        "username": "carol"}
+
+
+def test_inventory_user_beats_config_user():
+    host = Host(name="w", address="1.2.3.4", user="alice")
+
+    assert _build_connect_kwargs(host, {"user": "carol"}) == {
+        "username": "alice"}
+
+
+def test_config_identityfile_is_used_when_inventory_has_no_key(
+        monkeypatch):
+    monkeypatch.setenv("HOME", "/home/tester")
+    host = Host(name="w", address="1.2.3.4", user="alice")
+    kwargs = _build_connect_kwargs(
+        host, {"identityfile": ["~/.ssh/cfg_key"]})
+
+    assert kwargs["key_filename"] == "/home/tester/.ssh/cfg_key"
+
+
+def test_inventory_key_beats_config_identityfile():
+    host = Host(name="w", address="1.2.3.4", user="alice", key_file="/k")
+    kwargs = _build_connect_kwargs(host, {"identityfile": ["/cfg"]})
+
+    assert kwargs["key_filename"] == "/k"
+
+
+# --- _resolve_target : adresse et port effectifs ---------------------------
+
+def test_target_defaults_to_inventory_address_and_port_22():
+    host = Host(name="w", address="1.2.3.4")
+
+    assert _resolve_target(host, {}) == ("1.2.3.4", 22)
+
+
+def test_target_uses_config_hostname_and_port():
+    host = Host(name="w", address="web")
+
+    assert _resolve_target(host, {"hostname": "10.0.0.5",
+                                  "port": "2200"}) == ("10.0.0.5", 2200)
+
+
+def test_inventory_port_beats_config_port():
+    host = Host(name="w", address="web", port=2222)
+
+    assert _resolve_target(host, {"port": "2200"}) == ("web", 2222)
+
+
+# --- load_ssh_config : lecture de ~/.ssh/config ----------------------------
+
+def test_missing_ssh_config_is_tolerated():
+    assert load_ssh_config("1.2.3.4") == {}
+
+
+def test_ssh_config_is_looked_up_for_the_host(isolated_home):
+    write_ssh_config(isolated_home, "Host web\n    User carol\n"
+                                    "    Port 2200\n")
+
+    config = load_ssh_config("web")
+
+    assert config["user"] == "carol"
+    assert config["port"] == "2200"
+    assert load_ssh_config("other").get("user") is None
+
+
 # --- connect() : on remplace paramiko.SSHClient par un faux ---------------
+
+def test_connect_applies_ssh_config(isolated_home, monkeypatch):
+    monkeypatch.setattr("getpass.getuser", lambda: "bob")
+    write_ssh_config(isolated_home,
+                     "Host web\n    HostName 10.0.0.5\n    User carol\n"
+                     "    Port 2200\n    IdentityFile ~/.ssh/cfg_key\n")
+    fake_client = MagicMock()
+
+    with patch("mla.ssh.paramiko.SSHClient", return_value=fake_client):
+        connect(Host(name="w", address="web"))
+
+    args, kwargs = fake_client.connect.call_args
+    assert args == ("10.0.0.5",)
+    assert kwargs["port"] == 2200
+    assert kwargs["username"] == "carol"
+    assert kwargs["key_filename"] == str(isolated_home / ".ssh/cfg_key")
+
 
 def test_connect_uses_built_kwargs_and_sets_host_key_policy():
     host = Host(
