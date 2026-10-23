@@ -510,3 +510,22 @@ def test_hosts_sharing_same_ip_are_kept_separate(monkeypatch):
     assert seen.count(clients[2223]) == 2
     clients[2222].close.assert_called_once()
     clients[2223].close.assert_called_once()
+
+
+def test_module_warnings_are_logged_with_host_prefix(fake_connect, caplog):
+    caplog.set_level(logging.INFO)
+
+    class _Warns:
+        def __init__(self, params):
+            self.params = params
+
+        def process(self, ssh_client, dry_run=False, sudo_password=None):
+            return ModuleResult(changed=True, warnings=["first", "second"])
+
+    run_todos([Todo(module="template")], [make_host("10.0.0.1")],
+              registry={"template": _Warns})
+
+    warnings = [r.getMessage() for r in caplog.records
+                if r.levelno == logging.WARNING]
+    assert warnings == ["host=10.0.0.1 op=template first",
+                        "host=10.0.0.1 op=template second"]

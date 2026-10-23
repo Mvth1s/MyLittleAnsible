@@ -141,6 +141,9 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                                  truncate_output(error))
                     reports[host.name].fail += 1
                 else:
+                    for warning in result.warnings:
+                        logger.warning("host=%s op=%s %s", host.address,
+                                       todo.module, warning)
                     if dry_run:
                         for command in result.commands:
                             logger.info("host=%s dry run: %s",
