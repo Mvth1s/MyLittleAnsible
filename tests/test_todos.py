@@ -473,3 +473,40 @@ def test_multiline_error_is_flattened_with_pipe(fake_connect, caplog):
               registry=registry)
 
     assert "host=10.0.0.1 Job failed. | See status." in caplog.messages
+
+
+def test_hosts_sharing_same_ip_are_kept_separate(monkeypatch):
+    clients = {}
+
+    def _connect(host):
+        client = MagicMock()
+        clients[host.port] = client
+        return client
+
+    monkeypatch.setattr("mla.ssh.connect", _connect)
+
+    seen = []
+
+    class _RecordingModule:
+        def __init__(self, params):
+            self.params = params
+
+        def process(self, ssh_client, dry_run=False, sudo_password=None):
+            seen.append(ssh_client)
+            return ModuleResult(changed=True)
+
+    hosts = [
+        Host(name="a1", address="127.0.0.1", port=2222),
+        Host(name="a2", address="127.0.0.1", port=2223),
+    ]
+    todos = [Todo(module="rec"), Todo(module="rec")]
+
+    reports = run_todos(todos, hosts, registry={"rec": _RecordingModule})
+
+    assert set(reports) == {"a1", "a2"}
+    assert reports["a1"] == HostReport(ok=0, changed=2, fail=0)
+    assert reports["a2"] == HostReport(ok=0, changed=2, fail=0)
+    assert seen.count(clients[2222]) == 2
+    assert seen.count(clients[2223]) == 2
+    clients[2222].close.assert_called_once()
+    clients[2223].close.assert_called_once()
