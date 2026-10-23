@@ -552,3 +552,32 @@ def test_unreachable_host_gets_a_ko_status_per_todo(monkeypatch, caplog):
     assert "[2] host=10.0.0.2 op=apt status=KO" in caplog.messages
     assert "[1] host=10.0.0.1 op=apt status=CHANGED" in caplog.messages
     assert reports["10.0.0.2"] == HostReport(ok=0, changed=0, fail=2)
+
+
+def _module_with_defaults(defaults):
+    module = make_module()
+    module.DEFAULTS = defaults
+    return module
+
+
+def test_announce_line_appends_module_defaults(fake_connect, caplog):
+    caplog.set_level(logging.INFO)
+    registry = {"copy": _module_with_defaults({"backup": False})}
+    todo = Todo(module="copy", params={"src": "./public/",
+                                       "dest": "/var/www/public"})
+
+    run_todos([todo], [make_host("10.0.0.1")], registry=registry)
+
+    assert ("[1] host=10.0.0.1 op=copy src=./public/ dest=/var/www/public "
+            "backup=False") in caplog.messages
+
+
+def test_announce_line_explicit_param_overrides_default(fake_connect,
+                                                        caplog):
+    caplog.set_level(logging.INFO)
+    registry = {"copy": _module_with_defaults({"backup": False})}
+    todo = Todo(module="copy", params={"src": "a", "backup": True})
+
+    run_todos([todo], [make_host("10.0.0.1")], registry=registry)
+
+    assert "[1] host=10.0.0.1 op=copy src=a backup=True" in caplog.messages

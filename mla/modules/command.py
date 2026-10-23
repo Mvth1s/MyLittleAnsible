@@ -11,6 +11,7 @@ from mla.ssh import run_remote_cmd
 
 class Command(BaseModule):
     name = "command"
+    DEFAULTS = {"shell": "/bin/bash"}
 
     def _build_command(self):
         """
@@ -21,7 +22,7 @@ class Command(BaseModule):
         command = str(self.params.get("command") or "").strip()
         if not command:
             raise ModuleError("command: missing 'command' parameter")
-        shell = self.params.get("shell", "/bin/bash")
+        shell = self.params.get("shell", self.DEFAULTS["shell"])
         return f"{shell} -c {shlex.quote(command)}"
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):

@@ -50,11 +50,12 @@ def backup_remote(ssh_client, cmd, sudo_password=None):
 
 class Copy(BaseModule):
     name = "copy"
+    DEFAULTS = {"backup": False}
 
     def _params(self):
         src = self.params.get("src")
         dest = self.params.get("dest")
-        backup = self.params.get("backup", False)
+        backup = self.params.get("backup", self.DEFAULTS["backup"])
         if not src or not dest:
             raise ModuleError(
                 "copy: src and dest are required")

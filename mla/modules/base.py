@@ -31,6 +31,8 @@ class ModuleResult:
 
 class BaseModule:
     name: str = "anonymous"
+    # valeurs des paramètres optionnels, affichées dans l'en-tête de tâche
+    DEFAULTS: dict = {}
 
     def __init__(self, params: dict):
         self.params = params
