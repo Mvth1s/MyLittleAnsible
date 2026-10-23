@@ -16,7 +16,7 @@ def make_run(active=False, enabled=False, action_exit=0, action_stderr=""):
     """
     calls = []
 
-    def fake_run(cmd, ssh_client):
+    def fake_run(cmd, ssh_client, stdin_data=None):
         calls.append(cmd)
         if "is-active" in cmd:
             return CmdResult("", "", 0 if active else 1)
@@ -31,7 +31,7 @@ PASSWORD = "s3cret"
 
 
 def systemctl(args):
-    return sudo_cmd(f"systemctl {args}", PASSWORD)
+    return sudo_cmd(f"systemctl {args}")
 
 
 def run_service(monkeypatch, params, dry_run=False, sudo_password=None,
@@ -45,7 +45,7 @@ def run_service(monkeypatch, params, dry_run=False, sudo_password=None,
 
 
 def action_calls(calls):
-    return [c for c in calls if c.startswith("printf")]
+    return [c for c in calls if c.startswith("sudo")]
 
 
 def test_registry_exposes_service():

@@ -9,8 +9,7 @@ from mla.modules.base import (
     BaseModule,
     ModuleError,
     ModuleResult,
-    run_checked,
-    sudo_cmd,
+    run_sudo,
 )
 from mla.ssh import run_remote_cmd
 
@@ -73,6 +72,6 @@ class Sysctl(BaseModule):
                 "sysctl: sudo password required but missing from inventory")
 
         for cmd, what in actions:
-            run_checked(sudo_cmd(cmd, sudo_password), ssh_client, what)
+            run_sudo(cmd, ssh_client, sudo_password, what)
 
         return ModuleResult(changed=True)

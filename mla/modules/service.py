@@ -9,8 +9,7 @@ from mla.modules.base import (
     BaseModule,
     ModuleError,
     ModuleResult,
-    run_checked,
-    sudo_cmd,
+    run_sudo,
 )
 from mla.ssh import run_remote_cmd
 
@@ -75,5 +74,5 @@ class Service(BaseModule):
             raise ModuleError(
                 "service: sudo password required but missing from inventory")
 
-        run_checked(sudo_cmd(action, sudo_password), ssh_client, "systemctl")
+        run_sudo(action, ssh_client, sudo_password, "systemctl")
         return ModuleResult(changed=True)

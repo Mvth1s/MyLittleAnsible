@@ -92,11 +92,18 @@ def connect(host):
     return client
 
 
-def run_remote_cmd(command: str, ssh_client: paramiko.SSHClient) -> CmdResult:
+def run_remote_cmd(command: str, ssh_client: paramiko.SSHClient,
+                   stdin_data: str | None = None) -> CmdResult:
     """
     Exécute 'command' sur 'ssh_client' et retourne un CmdResult.
+    'stdin_data' (ex. mot de passe sudo) est écrit sur l'entrée standard
+    du canal puis fermé : il n'apparaît jamais dans la ligne de commande.
     """
     stdin, stdout, stderr = ssh_client.exec_command(command)
+    if stdin_data is not None:
+        stdin.write(stdin_data)
+        stdin.flush()
+        stdin.channel.shutdown_write()
     exit_code = stdout.channel.recv_exit_status()  # bloque jusqu'à la fin
     return CmdResult(
         stdout=stdout.read().decode(), stderr=stderr.read().decode(),

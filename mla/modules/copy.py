@@ -14,7 +14,7 @@ from mla.modules.base import (
     ModuleError,
     ModuleResult,
     run_checked,
-    sudo_cmd,
+    run_sudo,
     upload,
     upload_commands,
 )
@@ -43,8 +43,9 @@ def backup_remote(ssh_client, cmd, sudo_password=None):
     Exécute la commande de backup 'cmd', via sudo si possible.
     """
     if sudo_password:
-        cmd = sudo_cmd(cmd, sudo_password)
-    run_checked(cmd, ssh_client, "backup")
+        run_sudo(cmd, ssh_client, sudo_password, "backup")
+    else:
+        run_checked(cmd, ssh_client, "backup")
 
 
 class Copy(BaseModule):

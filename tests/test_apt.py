@@ -8,9 +8,9 @@ from mla.ssh import CmdResult
 PASSWORD = "s3cret"
 INSTALL = sudo_cmd(
     "apt-get update -qq && "
-    "DEBIAN_FRONTEND=noninteractive apt-get install -y nginx", PASSWORD)
+    "DEBIAN_FRONTEND=noninteractive apt-get install -y nginx")
 REMOVE = sudo_cmd(
-    "DEBIAN_FRONTEND=noninteractive apt-get remove -y nginx", PASSWORD)
+    "DEBIAN_FRONTEND=noninteractive apt-get remove -y nginx")
 
 
 def make_run(installed, action_exit=0, action_stderr="", action_stdout=""):
@@ -22,7 +22,7 @@ def make_run(installed, action_exit=0, action_stderr="", action_stdout=""):
     """
     calls = []
 
-    def fake_run(cmd, ssh_client):
+    def fake_run(cmd, ssh_client, stdin_data=None):
         calls.append(cmd)
         if "dpkg-query" in cmd:
             return CmdResult("", "", 0 if installed else 1)
@@ -158,3 +158,20 @@ def test_install_refreshes_index_under_single_sudo(monkeypatch):
     assert "sudo -S -p ''" in action
     assert action.count("sudo") == 1
     assert action.index("apt-get update") < action.index("apt-get install")
+
+
+def test_sudo_password_is_sent_on_stdin_never_in_commands(monkeypatch):
+    seen = []
+
+    def fake_run(cmd, ssh_client, stdin_data=None):
+        seen.append((cmd, stdin_data))
+        if "dpkg-query" in cmd:
+            return CmdResult("", "", 1)
+        return CmdResult("", "", 0)
+
+    patch_run(monkeypatch, fake_run)
+
+    Apt({"name": "nginx"}).process(object(), sudo_password=PASSWORD)
+
+    assert all(PASSWORD not in cmd for cmd, _ in seen)
+    assert (INSTALL, PASSWORD + "\n") in seen

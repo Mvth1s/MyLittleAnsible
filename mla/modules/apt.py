@@ -8,8 +8,7 @@ from mla.modules.base import (
     BaseModule,
     ModuleError,
     ModuleResult,
-    run_checked,
-    sudo_cmd,
+    run_sudo,
 )
 from mla.ssh import run_remote_cmd
 
@@ -59,5 +58,5 @@ class Apt(BaseModule):
             raise ModuleError(
                 "apt: sudo password required but missing from inventory")
 
-        run_checked(sudo_cmd(action, sudo_password), ssh_client, "apt")
+        run_sudo(action, ssh_client, sudo_password, "apt")
         return ModuleResult(changed=True)

@@ -141,7 +141,7 @@ def patch_run(monkeypatch, remote_hash=None, fail_on=None):
     """
     calls = []
 
-    def fake_run(cmd, c):
+    def fake_run(cmd, c, stdin_data=None):
         calls.append(cmd)
         if fail_on and fail_on in cmd:
             return CmdResult("", f"{fail_on}: boom", 1)
@@ -242,7 +242,7 @@ def test_process_with_sudo_stages_and_installs(one_file, monkeypatch):
     assert result == ModuleResult(changed=True)
     sftp.put.assert_called_once_with(str(one_file), f"{TMPDIR}/0")
     install = sudo_cmd(
-        f"install -D -m 0640 {TMPDIR}/0 /var/www/index.html", PASSWORD)
+        f"install -D -m 0640 {TMPDIR}/0 /var/www/index.html")
     assert calls[-3:] == ["mktemp -d", install, f"rm -rf {TMPDIR}"]
     assert not any(c.startswith("mkdir") for c in calls)
 
@@ -337,8 +337,8 @@ def test_process_backup_with_sudo(one_file, monkeypatch):
 
     backup = [c for c in calls if "cp -a" in c]
     assert len(backup) == 1
-    assert backup[0].startswith("printf ")
-    assert "sudo -S -p ''" in backup[0]
+    assert backup[0].startswith("sudo -S -p '' ")
+    assert PASSWORD not in backup[0]
 
 
 def test_process_backup_failure_raises(one_file, monkeypatch):

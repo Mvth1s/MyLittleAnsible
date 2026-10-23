@@ -20,7 +20,7 @@ def make_run(current="0", persisted=False, w_exit=0, echo_exit=0, w_stderr=""):
     """
     calls = []
 
-    def fake_run(cmd, ssh_client):
+    def fake_run(cmd, ssh_client, stdin_data=None):
         calls.append(cmd)
         if cmd.startswith("cat /proc/sys"):
             if current is None:
@@ -46,7 +46,7 @@ def run_sysctl(monkeypatch, params, dry_run=False, sudo_password=None,
 
 
 def sudo_calls(calls):
-    return [c for c in calls if c.startswith("printf")]
+    return [c for c in calls if c.startswith("sudo")]
 
 
 def test_registry_exposes_sysctl():
@@ -82,7 +82,7 @@ def test_params_value_is_stringified_and_permanent_defaults_false():
 def test_current_value_reads_proc_sys(monkeypatch):
     seen = []
 
-    def fake(cmd, c):
+    def fake(cmd, c, stdin_data=None):
         seen.append(cmd)
         return CmdResult("4096\n", "", 0)
 
@@ -116,7 +116,7 @@ def test_runtime_differs_sets_it(monkeypatch):
 
     assert result == ModuleResult(changed=True)
     assert sudo_calls(calls) == [
-        sudo_cmd(f"sysctl -w {ATTR}=8192", PASSWORD)]
+        sudo_cmd(f"sysctl -w {ATTR}=8192")]
 
 
 def test_permanent_line_present_is_ok(monkeypatch):
