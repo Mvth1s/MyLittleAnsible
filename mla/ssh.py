@@ -49,11 +49,12 @@ def _build_connect_kwargs(host, config=None):
     config = config or {}
     kwargs = {"username": host.user or config.get("user")
               or getpass.getuser()}
+    if host.password:
+        # avec une clé, paramiko essaie la clé puis se replie dessus
+        kwargs["password"] = host.password
     if host.key_file:
         kwargs["key_filename"] = os.path.expanduser(host.key_file)
-    elif host.password:
-        kwargs["password"] = host.password
-    elif config.get("identityfile"):
+    elif not host.password and config.get("identityfile"):
         kwargs["key_filename"] = os.path.expanduser(
             config["identityfile"][0])
     return kwargs
