@@ -7,6 +7,10 @@ from mla.ssh import CmdResult
 
 ATTR = "net.core.somaxconn"
 PASSWORD = "s3cret"
+PERSIST_8192 = (
+    f"touch {CONF_FILE} && "
+    f"sed -i '/^[[:space:]]*net\\.core\\.somaxconn[[:space:]]*=/d' "
+    f"{CONF_FILE} && echo '{ATTR} = 8192' >> {CONF_FILE}")
 
 
 def make_run(current="0", persisted=False, w_exit=0, echo_exit=0, w_stderr=""):
@@ -189,8 +193,7 @@ def test_dry_run_lists_only_needed_commands(monkeypatch):
         monkeypatch, {"attribute": ATTR, "value": 8192, "permanent": True},
         dry_run=True, current="8192", persisted=False)
 
-    assert result.commands == [
-        f"echo '{ATTR} = 8192' >> {CONF_FILE}"]
+    assert result.commands == [PERSIST_8192]
 
 
 def test_dry_run_lists_runtime_and_permanent(monkeypatch):
@@ -198,6 +201,52 @@ def test_dry_run_lists_runtime_and_permanent(monkeypatch):
         monkeypatch, {"attribute": ATTR, "value": 8192, "permanent": True},
         dry_run=True, current="128", persisted=False)
 
-    assert result.commands == [
-        f"sysctl -w {ATTR}=8192",
-        f"echo '{ATTR} = 8192' >> {CONF_FILE}"]
+    assert result.commands == [f"sysctl -w {ATTR}=8192", PERSIST_8192]
+
+
+# --- E10 : booléens, valeurs multiples, pas de doublon dans le .conf ------
+
+
+@pytest.mark.parametrize("raw, expected", [(True, "1"), (False, "0")])
+def test_params_bool_value_becomes_1_or_0(raw, expected):
+    _, value, _ = Sysctl({"attribute": "net.ipv4.ip_forward",
+                          "value": raw})._params()
+
+    assert value == expected
+
+
+def test_params_multi_value_whitespace_is_normalized():
+    _, value, _ = Sysctl({"attribute": "net.ipv4.ip_local_port_range",
+                          "value": "32768   60999"})._params()
+
+    assert value == "32768 60999"
+
+
+def test_multi_value_with_tab_in_proc_is_idempotent(monkeypatch):
+    result, calls = run_sysctl(
+        monkeypatch,
+        {"attribute": "net.ipv4.ip_local_port_range", "value": "32768 60999"},
+        current="32768\t60999")
+
+    assert result == ModuleResult(changed=False)
+    assert sudo_calls(calls) == []
+
+
+def test_bool_true_sets_1(monkeypatch):
+    _, calls = run_sysctl(
+        monkeypatch, {"attribute": "net.ipv4.ip_forward", "value": True},
+        sudo_password=PASSWORD, current="0")
+
+    assert sudo_calls(calls) == [sudo_cmd("sysctl -w net.ipv4.ip_forward=1")]
+
+
+def test_permanent_write_removes_previous_lines_for_attribute(monkeypatch):
+    _, calls = run_sysctl(
+        monkeypatch,
+        {"attribute": ATTR, "value": 1024, "permanent": True},
+        sudo_password=PASSWORD, current="1024", persisted=False)
+
+    write = sudo_calls(calls)[0]
+    assert "sed -i" in write
+    assert r"net\.core\.somaxconn" in write
+    assert write.index("sed -i") < write.index(">> " + CONF_FILE)

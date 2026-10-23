@@ -26,9 +26,19 @@ class Sysctl(BaseModule):
             raise ModuleError("sysctl: missing 'attribute' parameter")
         if "value" not in self.params:
             raise ModuleError("sysctl: missing 'value' parameter")
-        value = str(self.params["value"])
+        value = self._normalize(self.params["value"])
         permanent = self.params.get("permanent", self.DEFAULTS["permanent"])
         return attribute, value, permanent
+
+    @staticmethod
+    def _normalize(value):
+        """
+        Valeur sous la forme lue dans /proc/sys : booléen -> '1'/'0',
+        espaces et tabulations ramenés à un seul espace.
+        """
+        if isinstance(value, bool):
+            value = int(value)
+        return " ".join(str(value).split())
 
     def _current_value(self, ssh_client, attribute):
         """
@@ -38,11 +48,22 @@ class Sysctl(BaseModule):
         result = run_remote_cmd(f"cat {shlex.quote(path)}", ssh_client)
         if result.exit_code != 0:
             return None
-        return result.stdout.strip()
+        return self._normalize(result.stdout)
 
     def _line_persisted(self, ssh_client, line):
         cmd = f"grep -qxF {shlex.quote(line)} {CONF_FILE}"
         return run_remote_cmd(cmd, ssh_client).exit_code == 0
+
+    @staticmethod
+    def _persist_command(attribute, line):
+        """
+        Commande qui retire de CONF_FILE toute ligne existante pour
+        'attribute' puis y ajoute 'line' : une seule ligne par attribut.
+        """
+        pattern = attribute.replace(".", r"\.").replace("/", r"\/")
+        sed = f"/^[[:space:]]*{pattern}[[:space:]]*=/d"
+        return (f"touch {CONF_FILE} && sed -i {shlex.quote(sed)} {CONF_FILE}"
+                f" && echo {shlex.quote(line)} >> {CONF_FILE}")
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):
         attribute, value, permanent = self._params()
@@ -60,9 +81,8 @@ class Sysctl(BaseModule):
                 (f"sysctl -w {shlex.quote(f'{attribute}={value}')}",
                  "sysctl -w"))
         if permanent and not persist_ok:
-            actions.append(
-                (f"echo {shlex.quote(line)} >> {CONF_FILE}",
-                 f"writing {CONF_FILE}"))
+            actions.append((self._persist_command(attribute, line),
+                            f"writing {CONF_FILE}"))
 
         if dry_run:
             return ModuleResult(changed=True,
