@@ -95,8 +95,8 @@ Premier passage, tout est à appliquer :
 2026-10-13 13:26:03,656 - root - INFO - [6] host=172.28.0.12 op=sysctl attribute=net.core.somaxconn value=8192 permanent=True
 2026-10-13 13:26:03,825 - root - INFO - [6] host=172.28.0.11 op=sysctl status=CHANGED
 2026-10-13 13:26:03,993 - root - INFO - [6] host=172.28.0.12 op=sysctl status=CHANGED
-2026-10-13 13:26:03,993 - root - INFO - [7] host=172.28.0.11 op=command command=echo "test" > /tmp/dummy-file cat /tmp/dummy-file
-2026-10-13 13:26:03,993 - root - INFO - [7] host=172.28.0.12 op=command command=echo "test" > /tmp/dummy-file cat /tmp/dummy-file
+2026-10-13 13:26:03,993 - root - INFO - [7] host=172.28.0.11 op=command command=echo "test" > /tmp/dummy-file cat /tmp/dummy-file shell=/bin/bash
+2026-10-13 13:26:03,993 - root - INFO - [7] host=172.28.0.12 op=command command=echo "test" > /tmp/dummy-file cat /tmp/dummy-file shell=/bin/bash
 2026-10-13 13:26:03,996 - root - INFO - [7] host=172.28.0.11 op=command status=CHANGED
 2026-10-13 13:26:04,037 - root - INFO - [7] host=172.28.0.12 op=command status=CHANGED
 2026-10-13 13:26:04,037 - root - INFO - done processing tasks for hosts: 172.28.0.11, 172.28.0.12
@@ -135,8 +135,8 @@ active lui-même le service à l'installation.
 2026-10-13 13:26:04,579 - root - INFO - [6] host=172.28.0.12 op=sysctl attribute=net.core.somaxconn value=8192 permanent=True
 2026-10-13 13:26:04,624 - root - INFO - [6] host=172.28.0.11 op=sysctl status=OK
 2026-10-13 13:26:04,668 - root - INFO - [6] host=172.28.0.12 op=sysctl status=OK
-2026-10-13 13:26:04,668 - root - INFO - [7] host=172.28.0.11 op=command command=echo "test" > /tmp/dummy-file cat /tmp/dummy-file
-2026-10-13 13:26:04,668 - root - INFO - [7] host=172.28.0.12 op=command command=echo "test" > /tmp/dummy-file cat /tmp/dummy-file
+2026-10-13 13:26:04,668 - root - INFO - [7] host=172.28.0.11 op=command command=echo "test" > /tmp/dummy-file cat /tmp/dummy-file shell=/bin/bash
+2026-10-13 13:26:04,668 - root - INFO - [7] host=172.28.0.12 op=command command=echo "test" > /tmp/dummy-file cat /tmp/dummy-file shell=/bin/bash
 2026-10-13 13:26:04,671 - root - INFO - [7] host=172.28.0.11 op=command status=CHANGED
 2026-10-13 13:26:04,712 - root - INFO - [7] host=172.28.0.12 op=command status=CHANGED
 2026-10-13 13:26:04,712 - root - INFO - done processing tasks for hosts: 172.28.0.11, 172.28.0.12
@@ -174,8 +174,28 @@ active lui-même le service à l'installation.
   temporaire distant (`install -D -m 0644 ./public/index.html /var/www/public/index.html`).
 - **Chemins `src` relatifs** (`copy`, `template`) : résolus depuis le dossier
   courant au lancement de `mla`, pas depuis l'emplacement du playbook.
-- **`sysctl` avec `permanent: true`** : la ligne `attribut = valeur` est ajoutée
-  dans `/etc/sysctl.d/99-mla.conf` sur la cible, en plus de la valeur runtime.
+- **En-tête de tâche** : les paramètres optionnels non précisés y apparaissent
+  avec leur valeur par défaut, comme dans l'exemple du sujet
+  (`backup=False`, `state=present`, `shell=/bin/bash`, `permanent=False`).
+- **Libellé des hôtes** : chaque ligne liée à un hôte commence par `host=<IP>`.
+  Si plusieurs hôtes de l'inventory partagent la même IP (ex. `127.0.0.1` avec
+  des ports différents), le libellé devient `host=<IP>:<port>` pour les
+  distinguer.
+- **Hôte injoignable** : la connexion abandonne après 10 s (TCP, bannière SSH,
+  authentification). L'erreur est loguée une fois, puis chaque todo affiche
+  `[n] host=<IP> op=<module> status=KO` pour cet hôte.
+- **Variables de template manquantes** : une variable absente de `vars` (et
+  non protégée par `| default(...)` ou `is defined`) est rendue vide ; un
+  warning `host=<IP> op=template template variable '<nom>' is undefined
+  (rendered empty)` est logué une fois par variable et par hôte. Le fichier
+  rendu garde son retour à la ligne final.
+- **`copy` d'un fichier vers un `dest` terminé par `/`** : le fichier est
+  déposé dans ce dossier sous son nom (`dest/<nom>`), créé si besoin.
+- **`sysctl`** : les booléens deviennent `1`/`0` et les espaces des valeurs
+  multiples sont normalisés (`ip_local_port_range: "32768 60999"` reste `OK`
+  au second passage). Avec `permanent: true`, la ligne `attribut = valeur`
+  remplace dans `/etc/sysctl.d/99-mla.conf` toute ligne existante pour cet
+  attribut (une seule ligne par attribut), en plus de la valeur runtime.
 - **Toujours `CHANGED`** : `service` avec `state: restarted` et `command` ne
   peuvent pas savoir si l'état voulu est déjà atteint ; ils s'exécutent et
   renvoient `CHANGED` à chaque passage.
@@ -197,8 +217,10 @@ hosts:
 | `webserver` | `192.168.1.22` | `2222`     |
 | `bastion`   | `192.168.1.24` | `22`       |
 
-`ssh_address` est obligatoire, `ssh_port` vaut `22` par défaut. Le YAML fait foi :
-le texte du sujet inverse les deux ports dans sa description de cet exemple.
+`ssh_address` est obligatoire. `ssh_port` est un entier entre 1 et 65535 ; s'il
+est absent, le port vient de `~/.ssh/config` (`Port`), sinon `22`. Le YAML fait
+foi : le texte du sujet inverse les deux ports dans sa description de cet
+exemple.
 
 ### Authentification SSH
 
@@ -210,11 +232,23 @@ Trois modes, choisis par hôte via des attributs supplémentaires dans l'invento
 | Utilisateur / mot de passe| `ssh_user`, `ssh_password`      | `ssh user@host`              |
 | Clé privée                | `ssh_user`, `ssh_key_file`      | `ssh -i key.pem user@host`   |
 
+Comme `ssh <host>`, `mla` lit `~/.ssh/config` pour l'adresse de l'inventory :
+`HostName`, `User`, `Port` et `IdentityFile` s'appliquent quand l'inventory ne
+les précise pas (l'inventory reste prioritaire ; un fichier absent est ignoré).
+`ssh_address` peut donc être un alias défini dans `~/.ssh/config`. Sans
+`ssh_user` ni utilisateur dans `~/.ssh/config`, l'utilisateur courant est
+utilisé (`whoami`).
+
+Si `ssh_key_file` et `ssh_password` sont tous deux renseignés, la clé est
+essayée en premier, puis le mot de passe si la clé est refusée.
+
 ### Élévation de privilèges
 
 `apt`, `service` et `sysctl` ont besoin des droits root sur la cible et passent
 par `sudo` avec mot de passe (un seul `sudo -S -p '' sh -c '<commande>'` par
-action, jamais `sudo -n`/NOPASSWD). Le mot de passe utilisé est celui de
+action, jamais `sudo -n`/NOPASSWD). Le mot de passe est écrit sur l'entrée
+standard du canal SSH, jamais dans la ligne de commande : il n'apparaît pas
+dans `ps` sur la cible. Le mot de passe utilisé est celui de
 `ssh_password` dans l'inventory — **y compris pour un hôte qui se connecte en
 SSH par clé** (`ssh_key_file`). Renseigne donc `ssh_password` dès qu'un de ces
 trois modules cible cet hôte, même si `ssh_key_file` est aussi présent. Sans mot
