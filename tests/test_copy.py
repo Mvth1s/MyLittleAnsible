@@ -53,6 +53,14 @@ def test_targets_single_file(tmp_path):
     assert Copy({})._targets(str(f), "/etc/conf") == [(str(f), "/etc/conf")]
 
 
+def test_targets_single_file_into_dest_ending_with_slash(tmp_path):
+    f = tmp_path / "one.txt"
+    f.write_text("x")
+
+    assert Copy({})._targets(str(f), "/opt/dir/") == [
+        (str(f), "/opt/dir/one.txt")]
+
+
 def test_targets_directory_keeps_tree(tmp_path):
     (tmp_path / "sub").mkdir()
     (tmp_path / "a.txt").write_text("a")
@@ -351,3 +359,17 @@ def test_process_backup_failure_raises(one_file, monkeypatch):
         ).process(ssh)
 
     sftp.put.assert_not_called()
+
+
+def test_process_file_into_dir_backs_up_target_file(one_file, monkeypatch):
+    calls = patch_run(monkeypatch)
+    ssh, _ = make_ssh()
+
+    Copy(
+        {"src": str(one_file), "dest": "/opt/dir/", "backup": True}
+    ).process(ssh, sudo_password=PASSWORD)
+
+    backup = [c for c in calls if "cp -a" in c]
+    assert "/opt/dir/index.html" in backup[0]
+    assert any("/opt/dir/index.html" in c and "install -D" in c
+               for c in calls)

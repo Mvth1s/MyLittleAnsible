@@ -67,9 +67,12 @@ class Copy(BaseModule):
     def _targets(self, src, dest):
         """
         (local_abs, remote_abs)
-        pour chaque fichier à copier.
+        pour chaque fichier à copier. Un fichier copié vers un 'dest' qui
+        se termine par '/' est déposé dans ce dossier sous son nom.
         """
         if os.path.isfile(src):
+            if dest.endswith("/"):
+                dest = posixpath.join(dest, os.path.basename(src))
             return [(src, dest)]
         pairs = []
         for root, _dirs, files in os.walk(src):
@@ -111,7 +114,9 @@ class Copy(BaseModule):
 
         files = [(local, remote, local_mode(local))
                  for local, remote in targets]
-        backup_cmd = backup_command(dest) if backup else None
+        # fichier seul : on sauvegarde le fichier cible, pas son dossier
+        backup_target = targets[0][1] if os.path.isfile(src) else dest
+        backup_cmd = backup_command(backup_target) if backup else None
 
         if dry_run:
             commands = [backup_cmd] if backup_cmd else []
