@@ -1,4 +1,5 @@
 import hashlib
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -63,21 +64,37 @@ def test_render_substitutes_variables(tmp_path):
     assert rendered == "listen 8000;"
 
 
-def test_render_uses_default_filter_for_missing_var(tmp_path):
+def test_render_uses_default_filter_for_missing_var(tmp_path, caplog):
+    caplog.set_level(logging.WARNING)
     f = tmp_path / "a.j2"
     f.write_text("server_name {{ name | default('localhost') }};")
 
     rendered = Template({})._render(str(f), {})
 
     assert rendered == "server_name localhost;"
+    assert caplog.records == []
 
 
-def test_render_missing_variable_without_default_raises(tmp_path):
+def test_render_missing_variable_renders_empty_and_warns(tmp_path, caplog):
+    caplog.set_level(logging.WARNING)
     f = tmp_path / "a.j2"
     f.write_text("listen {{ port }};")
 
-    with pytest.raises(ModuleError):
-        Template({})._render(str(f), {})
+    rendered = Template({})._render(str(f), {})
+
+    assert rendered == "listen ;"
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "port" in warnings[0].getMessage()
+
+
+def test_render_keeps_trailing_newline(tmp_path):
+    f = tmp_path / "a.j2"
+    f.write_text("server {\n    listen {{ port }};\n}\n")
+
+    rendered = Template({})._render(str(f), {"port": 8000})
+
+    assert rendered == "server {\n    listen 8000;\n}\n"
 
 
 def test_render_syntax_error_raises(tmp_path):

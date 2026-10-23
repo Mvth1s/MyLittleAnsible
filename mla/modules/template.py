@@ -4,6 +4,7 @@ et pousse le résultat sur l'hôte.
 """
 
 import hashlib
+import logging
 import os
 import shlex
 
@@ -18,6 +19,8 @@ from mla.modules.base import (
 )
 from mla.modules.copy import local_mode
 from mla.ssh import run_remote_cmd
+
+logger = logging.getLogger()
 
 
 class Template(BaseModule):
@@ -44,15 +47,17 @@ class Template(BaseModule):
     def _render(self, src, vars):
         """
         Lit 'src', rend le template avec 'vars', retourne le texte obtenu.
-        Lève ModuleError si le template a une erreur de syntaxe ou
-        référence une variable absente de 'vars'.
+        Lève ModuleError si le template a une erreur de syntaxe.
+        Une variable absente de 'vars' est rendue vide (warning).
         """
         with open(src) as f:
             text = f.read()
 
         try:
             rendered = jinja2.Template(
-                text, undefined=jinja2.StrictUndefined).render(vars)
+                text, undefined=jinja2.make_logging_undefined(
+                    logger=logger, base=jinja2.Undefined),
+                keep_trailing_newline=True).render(vars)
             return rendered
         except jinja2.TemplateError as exc:
             raise ModuleError(f"template: {exc}")
