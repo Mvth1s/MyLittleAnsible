@@ -1,5 +1,7 @@
 # MyLittleAnsible
 
+[![CI](https://github.com/Mvth1s/MyLittleAnsible/actions/workflows/ci.yml/badge.svg)](https://github.com/Mvth1s/MyLittleAnsible/actions/workflows/ci.yml)
+
 Un mini-Ansible écrit en Python : `mla` configure des serveurs Linux par SSH
 à partir d'un inventaire et d'un playbook YAML déclaratifs.
 
