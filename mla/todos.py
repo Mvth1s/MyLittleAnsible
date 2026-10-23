@@ -95,16 +95,16 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                 len(todos), ", ".join(addresses))
 
     clients = {}
-    reports = {h.address: HostReport() for h in hosts}
+    reports = {h.name: HostReport() for h in hosts}
     usable = []
     for host in hosts:
         try:
-            clients[host.address] = ssh.connect(host)
+            clients[host.name] = ssh.connect(host)
             usable.append(host)
         except ssh.SSHConnectionError as exc:
             logger.error("host=%s connection failed: %s",
                          host.address, truncate_output(str(exc)))
-            reports[host.address].fail = len(todos)
+            reports[host.name].fail = len(todos)
 
     try:
         for i, todo in enumerate(todos, start=1):
@@ -120,7 +120,7 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
             for host in usable:
                 module = module_cls(todo.params)
                 try:
-                    result = module.process(clients[host.address],
+                    result = module.process(clients[host.name],
                                             dry_run=dry_run,
                                             sudo_password=host.password)
                 except ModuleError as exc:
@@ -139,7 +139,7 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                                 host.address, todo.module)
                     logger.error("host=%s %s", host.address,
                                  truncate_output(error))
-                    reports[host.address].fail += 1
+                    reports[host.name].fail += 1
                 else:
                     if dry_run:
                         for command in result.commands:
@@ -150,14 +150,14 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                     logger.info("[%d] host=%s op=%s status=%s", i,
                                 host.address, todo.module, status)
                     if result.changed:
-                        reports[host.address].changed += 1
+                        reports[host.name].changed += 1
                     else:
-                        reports[host.address].ok += 1
+                        reports[host.name].ok += 1
 
         logger.info("done processing tasks for hosts: %s",
                     ", ".join(addresses))
         for host in hosts:
-            r = reports[host.address]
+            r = reports[host.name]
             logger.info("host=%s ok=%d changed=%d fail=%d",
                         host.address, r.ok, r.changed, r.fail)
     finally:
