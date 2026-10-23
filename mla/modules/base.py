@@ -25,6 +25,8 @@ class ModuleResult:
     changed: bool
     # en dry-run : commandes qui auraient été exécutées (sans mot de passe)
     commands: list[str] = field(default_factory=list)
+    # avertissements à loguer par run_todos, préfixés par l'hôte
+    warnings: list[str] = field(default_factory=list)
 
 
 class BaseModule:

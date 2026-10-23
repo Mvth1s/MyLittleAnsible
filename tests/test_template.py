@@ -75,17 +75,65 @@ def test_render_uses_default_filter_for_missing_var(tmp_path, caplog):
     assert caplog.records == []
 
 
-def test_render_missing_variable_renders_empty_and_warns(tmp_path, caplog):
-    caplog.set_level(logging.WARNING)
+def test_render_missing_variable_renders_empty_silently(tmp_path, caplog):
+    caplog.set_level(logging.DEBUG)
     f = tmp_path / "a.j2"
     f.write_text("listen {{ port }};")
 
     rendered = Template({})._render(str(f), {})
 
     assert rendered == "listen ;"
-    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert len(warnings) == 1
-    assert "port" in warnings[0].getMessage()
+    assert caplog.records == []
+
+
+def test_render_undefined_attribute_raises_without_logging(tmp_path, caplog):
+    caplog.set_level(logging.DEBUG)
+    f = tmp_path / "a.j2"
+    f.write_text("listen {{ cfg.port }};")
+
+    with pytest.raises(ModuleError, match="cfg"):
+        Template({})._render(str(f), {})
+    assert caplog.records == []
+
+
+# --- _missing_vars -------------------------------------------------------
+
+
+def test_missing_vars_lists_each_variable_once():
+    text = "{{ port }} {{ port }} {{ host }}"
+
+    assert Template({})._missing_vars(text, {}) == ["host", "port"]
+
+
+def test_missing_vars_ignores_provided_vars():
+    text = "{{ port }} {{ host }}"
+
+    assert Template({})._missing_vars(text, {"port": 80}) == ["host"]
+
+
+def test_missing_vars_ignores_default_filter():
+    text = "{{ name | default('localhost') }} {{ other | d('x') }}"
+
+    assert Template({})._missing_vars(text, {}) == []
+
+
+def test_missing_vars_reports_var_also_used_without_default():
+    text = "{{ name | default('x') }} {{ name }}"
+
+    assert Template({})._missing_vars(text, {}) == ["name"]
+
+
+def test_missing_vars_ignores_is_defined_test():
+    text = "{% if port is defined %}{{ port }}{% endif %}"
+
+    assert Template({})._missing_vars(text, {}) == []
+
+
+def test_missing_vars_ignores_loop_and_set_variables():
+    text = ("{% set x = 1 %}{{ x }}"
+            "{% for i in items %}{{ i }}{% endfor %}")
+
+    assert Template({})._missing_vars(text, {}) == ["items"]
 
 
 def test_render_keeps_trailing_newline(tmp_path):
@@ -220,3 +268,29 @@ def test_process_dry_run_does_not_push(template_file, monkeypatch):
     assert result == ModuleResult(changed=True, commands=[
         f"install -D -m 0644 {template_file} /etc/nginx/default"])
     ssh.open_sftp.assert_not_called()
+
+
+def test_process_reports_missing_vars_as_warnings(template_file,
+                                                  monkeypatch):
+    patch_run(monkeypatch)
+    ssh, _ = make_ssh()
+
+    result = Template({"src": str(template_file),
+                       "dest": "/etc/nginx/default"}).process(ssh)
+
+    assert result.changed is True
+    assert result.warnings == [
+        "template variable 'listen_port' is undefined (rendered empty)"]
+
+
+def test_process_reports_warnings_even_when_unchanged(template_file,
+                                                      monkeypatch):
+    digest = hashlib.sha256(b"listen ;").hexdigest()
+    patch_run(monkeypatch, remote_hash=digest)
+    ssh, _ = make_ssh()
+
+    result = Template({"src": str(template_file),
+                       "dest": "/etc/nginx/default"}).process(ssh)
+
+    assert result.changed is False
+    assert len(result.warnings) == 1
