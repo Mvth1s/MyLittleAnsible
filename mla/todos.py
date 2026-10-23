@@ -2,6 +2,7 @@
 Lecture du playbook (todos.yml) et orchestration des todos.
 """
 import logging
+from collections import Counter
 from dataclasses import dataclass, field
 
 import yaml
@@ -85,6 +86,17 @@ def _with_defaults(params, module_cls):
             **{k: v for k, v in defaults.items() if k not in params}}
 
 
+def _host_labels(hosts):
+    """
+    {host_name: libellé de log} : l'IP seule, ou 'IP:port' quand plusieurs
+    hôtes de l'inventory partagent la même IP (port absent : 22).
+    """
+    counts = Counter(h.address for h in hosts)
+    return {h.name: (f"{h.address}:{h.port or 22}"
+                     if counts[h.address] > 1 else h.address)
+            for h in hosts}
+
+
 def run_todos(todos, hosts, registry=None, dry_run=False):
     """
     Exécute chaque todo sur chaque host et logue au format du sujet.
@@ -101,7 +113,8 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
     for host in hosts:
         register_secret(host.password)
 
-    addresses = [h.address for h in hosts]
+    labels = _host_labels(hosts)
+    addresses = list(labels.values())
     logger.info("processing %d tasks on hosts: %s",
                 len(todos), ", ".join(addresses))
 
@@ -112,7 +125,7 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
             clients[host.name] = ssh.connect(host)
         except ssh.SSHConnectionError as exc:
             logger.error("host=%s connection failed: %s",
-                         host.address, truncate_output(str(exc)))
+                         labels[host.name], truncate_output(str(exc)))
             reports[host.name].fail = len(todos)
 
     try:
@@ -122,7 +135,7 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                 _with_defaults(todo.params, module_cls))
 
             for host in hosts:
-                ligne = f"[{i}] host={host.address} op={todo.module}"
+                ligne = f"[{i}] host={labels[host.name]} op={todo.module}"
                 if params_str:
                     ligne += f" {params_str}"
                 logger.info(ligne)
@@ -131,7 +144,7 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                 if host.name not in clients:
                     # injoignable : KO pour chaque todo (fail déjà compté)
                     logger.info("[%d] host=%s op=%s status=KO", i,
-                                host.address, todo.module)
+                                labels[host.name], todo.module)
                     continue
                 module = module_cls(todo.params)
                 try:
@@ -144,29 +157,29 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
                     # bug ou erreur imprévue : la trace n'apparaît qu'en
                     # --debug, le run continue sur les autres tâches
                     logger.debug("host=%s op=%s unexpected error",
-                                 host.address, todo.module, exc_info=True)
+                                 labels[host.name], todo.module, exc_info=True)
                     error = f"{type(exc).__name__}: {exc}"
                 else:
                     error = None
 
                 if error is not None:
                     logger.info("[%d] host=%s op=%s status=KO", i,
-                                host.address, todo.module)
-                    logger.error("host=%s %s", host.address,
+                                labels[host.name], todo.module)
+                    logger.error("host=%s %s", labels[host.name],
                                  truncate_output(error))
                     reports[host.name].fail += 1
                 else:
                     for warning in result.warnings:
-                        logger.warning("host=%s op=%s %s", host.address,
+                        logger.warning("host=%s op=%s %s", labels[host.name],
                                        todo.module, warning)
                     if dry_run:
                         for command in result.commands:
                             logger.info("host=%s dry run: %s",
-                                        host.address,
+                                        labels[host.name],
                                         escape_newlines(command))
                     status = "CHANGED" if result.changed else "OK"
                     logger.info("[%d] host=%s op=%s status=%s", i,
-                                host.address, todo.module, status)
+                                labels[host.name], todo.module, status)
                     if result.changed:
                         reports[host.name].changed += 1
                     else:
@@ -177,7 +190,7 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
         for host in hosts:
             r = reports[host.name]
             logger.info("host=%s ok=%d changed=%d fail=%d",
-                        host.address, r.ok, r.changed, r.fail)
+                        labels[host.name], r.ok, r.changed, r.fail)
     finally:
         for client in clients.values():
             client.close()
