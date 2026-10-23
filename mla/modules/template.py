@@ -37,7 +37,7 @@ class Template(BaseModule):
         """
         src = self.params.get("src")
         dest = self.params.get("dest")
-        vars = self.params.get("vars", {})
+        template_vars = self.params.get("vars", {})
         if not src or not dest:
             raise ModuleError(
                 "template: src and dest are required"
@@ -46,11 +46,11 @@ class Template(BaseModule):
             raise ModuleError(
                 f"template: src not found: {src}"
             )
-        if not isinstance(vars, dict):
+        if not isinstance(template_vars, dict):
             raise ModuleError(
                 "template: vars must be a dict"
             )
-        return src, dest, vars
+        return src, dest, template_vars
 
     @staticmethod
     def _read(src):
@@ -60,26 +60,27 @@ class Template(BaseModule):
         with open(src) as f:
             return f.read()
 
-    def _render(self, src, vars):
+    def _render(self, src, template_vars):
         """
-        Lit 'src', rend le template avec 'vars', retourne le texte obtenu.
-        Une variable absente de 'vars' est rendue vide (voir _missing_vars).
-        Lève ModuleError si le template a une erreur de syntaxe ou utilise
-        un attribut d'une variable absente.
+        Lit 'src', le rend avec 'template_vars', retourne le texte obtenu.
+        Une variable absente de 'template_vars' est rendue vide
+        (voir _missing_vars). Lève ModuleError si le template a une erreur
+        de syntaxe ou utilise un attribut d'une variable absente.
         """
         try:
-            return jinja2.Template(
-                self._read(src), keep_trailing_newline=True).render(vars)
+            template = jinja2.Template(self._read(src),
+                                       keep_trailing_newline=True)
+            return template.render(template_vars)
         except jinja2.TemplateError as exc:
             raise ModuleError(f"template: {exc}")
 
     @staticmethod
-    def _missing_vars(text, vars):
+    def _missing_vars(text, template_vars):
         """
         Noms triés des variables utilisées par 'text' mais absentes de
-        'vars', hors variables protégées par un filtre default ou un test
-        'is defined', et hors variables définies par le template lui-même
-        (set, for).
+        'template_vars', hors variables protégées par un filtre default ou
+        un test 'is defined', et hors variables définies par le template
+        lui-même (set, for).
         """
         try:
             ast = jinja2.Environment().parse(text)
@@ -100,7 +101,7 @@ class Template(BaseModule):
 
         used = {n.name for n in ast.find_all(nodes.Name)
                 if n.ctx == "load" and id(n) not in protected_nodes}
-        return sorted((used & undeclared) - guarded_names - set(vars))
+        return sorted((used & undeclared) - guarded_names - set(template_vars))
 
     def _remote_matches(self, ssh_client, dest, digest):
         """
@@ -118,12 +119,12 @@ class Template(BaseModule):
         Pousse le rendu s'il diffère du fichier distant.
         Les variables manquantes sont remontées dans 'warnings'.
         """
-        src, dest, vars = self._params()
-        rendered = self._render(src, vars).encode()
+        src, dest, template_vars = self._params()
+        rendered = self._render(src, template_vars).encode()
         digest = hashlib.sha256(rendered).hexdigest()
         warnings = [
             f"template variable '{name}' is undefined (rendered empty)"
-            for name in self._missing_vars(self._read(src), vars)]
+            for name in self._missing_vars(self._read(src), template_vars)]
 
         if self._remote_matches(ssh_client, dest, digest):
             return ModuleResult(changed=False, warnings=warnings)
