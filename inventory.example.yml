@@ -1,12 +1,39 @@
+# Inventaire d'exemple pour les conteneurs de docker/ (voir docker/README.md).
+# Copier vers inventory.yml (ignoré par git) et adapter :
+#   cp inventory.example.yml inventory.yml
+#
+# Chaque hôte choisit sa méthode d'authentification SSH selon les attributs
+# renseignés :
+#
+#   1. Configuration par défaut : aucun attribut d'authentification.
+#      mla se connecte comme `ssh <ssh_address>` : il lit ~/.ssh/config
+#      (HostName, User, Port, IdentityFile) et les clés de ~/.ssh/.
+#   2. Utilisateur et mot de passe : ssh_user + ssh_password.
+#   3. Clé privée : ssh_user + ssh_key_file.
+#
+# Si ssh_key_file et ssh_password sont tous deux présents, la clé est essayée
+# d'abord, puis le mot de passe. ssh_password sert aussi de mot de passe sudo
+# pour apt, service et sysctl : le renseigner même pour un hôte connecté par
+# clé si ces modules le ciblent.
+#
+# Les identifiants mla/mla ne valent que pour les conteneurs de test locaux.
+
 hosts:
+  # Méthode 3 (clé privée), avec ssh_password pour sudo.
   host1:
     ssh_address: 172.28.0.11
     ssh_port: 22
     ssh_user: mla
     ssh_password: mla
     ssh_key_file: ~/.ssh/id_ed25519_mla
+  # Méthode 2 (utilisateur et mot de passe).
   host2:
     ssh_address: 172.28.0.12
     ssh_port: 22
     ssh_user: mla
     ssh_password: mla
+  # Méthode 1 (configuration par défaut) : décommenter après avoir ajouté
+  # un bloc "Host mla-host1" dans ~/.ssh/config (voir docker/README.md).
+  # Sans ssh_password, apt/service/sysctl échoueront sur cet hôte.
+  # host3:
+  #   ssh_address: mla-host1
