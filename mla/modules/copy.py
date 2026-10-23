@@ -49,10 +49,16 @@ def backup_remote(ssh_client, cmd, sudo_password=None):
 
 
 class Copy(BaseModule):
+    """
+    Module copy : copie un fichier ou un dossier local vers l'hôte.
+    """
     name = "copy"
     DEFAULTS = {"backup": False}
 
     def _params(self):
+        """
+        Retourne (src, dest, backup) validés, ou lève ModuleError.
+        """
         src = self.params.get("src")
         dest = self.params.get("dest")
         backup = self.params.get("backup", self.DEFAULTS["backup"])
@@ -85,6 +91,9 @@ class Copy(BaseModule):
 
     @staticmethod
     def _sha256_local(path):
+        """
+        sha256 hexadécimal du fichier local 'path'.
+        """
         h = hashlib.sha256()
         with open(path, "rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
@@ -92,6 +101,9 @@ class Copy(BaseModule):
         return h.hexdigest()
 
     def _remote_matches(self, ssh_client, local, remote):
+        """
+        True si 'remote' existe sur l'hôte avec le même sha256 que 'local'.
+        """
         result = run_remote_cmd(
             f"sha256sum {shlex.quote(remote)}",
             ssh_client)
@@ -101,6 +113,9 @@ class Copy(BaseModule):
         return remote_hash == self._sha256_local(local)
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):
+        """
+        Copie les fichiers qui diffèrent (backup éventuel de 'dest' avant).
+        """
         src, dest, backup = self._params()
         targets = self._targets(src, dest)
 

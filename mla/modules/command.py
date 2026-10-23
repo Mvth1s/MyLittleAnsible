@@ -10,6 +10,9 @@ from mla.ssh import run_remote_cmd
 
 
 class Command(BaseModule):
+    """
+    Module command : exécute une commande shell arbitraire.
+    """
     name = "command"
     DEFAULTS = {"shell": "/bin/bash"}
 
@@ -26,6 +29,10 @@ class Command(BaseModule):
         return f"{shell} -c {shlex.quote(command)}"
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):
+        """
+        Exécute la commande (toujours CHANGED).
+        Lève ModuleError si le code retour est non nul.
+        """
         full_cmd = self._build_command()
 
         if dry_run:

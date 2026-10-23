@@ -14,6 +14,9 @@ from mla.ssh import run_remote_cmd
 
 
 class Apt(BaseModule):
+    """
+    Module apt : installe (present) ou désinstalle (absent) un paquet.
+    """
     name = "apt"
     DEFAULTS = {"state": "present"}
 
@@ -30,11 +33,17 @@ class Apt(BaseModule):
         return name, state
 
     def _is_installed(self, ssh_client, pkg):
+        """
+        True si le paquet 'pkg' est installé sur l'hôte.
+        """
         cmd = (f"dpkg-query -W -f='${{Status}}' {shlex.quote(pkg)} "
                f"2>/dev/null | grep -q 'ok installed'")
         return run_remote_cmd(cmd, ssh_client).exit_code == 0
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):
+        """
+        Installe ou désinstalle le paquet si son état diffère de 'state'.
+        """
         pkg, state = self._params()
         installed = self._is_installed(ssh_client, pkg)
 

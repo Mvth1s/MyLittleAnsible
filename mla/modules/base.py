@@ -22,6 +22,10 @@ class ModuleError(Exception):
 
 @dataclass
 class ModuleResult:
+    """
+    Résultat d'un module : changement effectué, commandes (dry-run)
+    et avertissements.
+    """
     changed: bool
     # en dry-run : commandes qui auraient été exécutées (sans mot de passe)
     commands: list[str] = field(default_factory=list)
@@ -30,11 +34,17 @@ class ModuleResult:
 
 
 class BaseModule:
+    """
+    Classe parente de tous les modules : interface commune 'process'.
+    """
     name: str = "anonymous"
     # valeurs des paramètres optionnels, affichées dans l'en-tête de tâche
     DEFAULTS: dict = {}
 
     def __init__(self, params: dict):
+        """
+        Mémorise les paramètres 'params' de la todo.
+        """
         self.params = params
 
     def process(self, ssh_client, dry_run=False, sudo_password=None):

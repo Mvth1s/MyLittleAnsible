@@ -72,11 +72,13 @@ ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no \
 #       User mla
 #       IdentityFile ~/.ssh/id_ed25519_mla
 # puis : ssh mla-host1
+# mla lit ce même fichier : un hôte d'inventory avec seulement
+# "ssh_address: mla-host1" se connecte comme "ssh mla-host1".
 
-# Vérifier sudo avec mot de passe (c'est ce que apt/service/sysctl font
-# en interne via "printf '%s\n' <password> | sudo -S <commande>")
+# Vérifier sudo avec mot de passe. mla envoie le mot de passe sur l'entrée
+# standard du canal SSH (sudo -S), jamais dans la ligne de commande :
 ssh -i ~/.ssh/id_ed25519_mla mla@172.28.0.11 \
-    "printf '%s\n' mla | sudo -S systemctl restart ssh && echo OK"
+    "sudo -S -p '' systemctl restart ssh && echo OK" <<< mla
 ```
 
 Si tu rebuild et que SSH râle sur la clé d'hôte :
@@ -84,9 +86,11 @@ Si tu rebuild et que SSH râle sur la clé d'hôte :
 
 ## 4. Remplir l'inventory
 
-Format du sujet. **Utilise les IP conteneur** (`172.28.0.x`, port 22) plutôt que
-`127.0.0.1:222x` : sinon les deux hôtes ont la même IP et le préfixe de log par
-IP devient ambigu.
+Format du sujet. Les IP conteneur (`172.28.0.x`, port 22) et les ports publiés
+(`127.0.0.1:222x`) fonctionnent tous les deux ; avec `127.0.0.1`, les logs
+affichent `host=127.0.0.1:2221` / `host=127.0.0.1:2222` pour distinguer les deux
+hôtes. Pour `apt`/`service`/`sysctl`, renseigne `ssh_password` (mot de passe
+sudo) même sur un hôte qui se connecte par clé.
 
 ```yaml
 hosts:
@@ -95,6 +99,7 @@ hosts:
     ssh_port: 22
     ssh_user: mla
     ssh_key_file: ~/.ssh/id_ed25519_mla
+    ssh_password: mla
   host2:
     ssh_address: 172.28.0.12
     ssh_port: 22

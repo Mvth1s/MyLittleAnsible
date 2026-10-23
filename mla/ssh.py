@@ -23,6 +23,9 @@ class SSHConnectionError(Exception):
 
 @dataclass
 class CmdResult:
+    """
+    Sortie standard, sortie d'erreur et code retour d'une commande distante.
+    """
     stdout: str
     stderr: str
     exit_code: int
