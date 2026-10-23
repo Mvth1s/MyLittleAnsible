@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 filterwarnings = [
-    "ignore::cryptography.utils.CryptographyDeprecationWarning",
+    "ignore:::paramiko",
 ]
 
 [build-system]
