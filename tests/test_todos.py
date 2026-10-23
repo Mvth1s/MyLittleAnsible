@@ -581,3 +581,31 @@ def test_announce_line_explicit_param_overrides_default(fake_connect,
     run_todos([todo], [make_host("10.0.0.1")], registry=registry)
 
     assert "[1] host=10.0.0.1 op=copy src=a backup=True" in caplog.messages
+
+
+def test_shared_ip_is_logged_with_port(fake_connect, caplog):
+    caplog.set_level(logging.INFO)
+    registry = {"fake": make_module(changed=True)}
+    hosts = [Host(name="a1", address="127.0.0.1", port=2222),
+             Host(name="a2", address="127.0.0.1", port=2223),
+             Host(name="b", address="10.0.0.9", port=2200)]
+
+    run_todos([Todo(module="fake")], hosts, registry=registry)
+
+    assert ("processing 1 tasks on hosts: 127.0.0.1:2222, 127.0.0.1:2223, "
+            "10.0.0.9") in caplog.messages
+    assert "[1] host=127.0.0.1:2222 op=fake status=CHANGED" in caplog.messages
+    assert "[1] host=127.0.0.1:2223 op=fake status=CHANGED" in caplog.messages
+    assert "[1] host=10.0.0.9 op=fake status=CHANGED" in caplog.messages
+    assert "host=127.0.0.1:2223 ok=0 changed=1 fail=0" in caplog.messages
+
+
+def test_shared_ip_without_port_is_logged_with_22(fake_connect, caplog):
+    caplog.set_level(logging.INFO)
+    registry = {"fake": make_module()}
+    hosts = [Host(name="a1", address="127.0.0.1"),
+             Host(name="a2", address="127.0.0.1", port=2223)]
+
+    run_todos([Todo(module="fake")], hosts, registry=registry)
+
+    assert "[1] host=127.0.0.1:22 op=fake" in caplog.messages
