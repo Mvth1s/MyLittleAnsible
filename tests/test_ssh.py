@@ -61,15 +61,16 @@ def test_key_auth():
     assert "password" not in kwargs
 
 
-def test_key_file_has_priority_over_password():
+def test_key_and_password_are_both_passed_for_fallback():
+    # paramiko essaie la clé puis se replie sur le mot de passe
     host = Host(
         name="w", address="1.2.3.4",
         password="s3cret", key_file="/tmp/k",
     )
     kwargs = _build_connect_kwargs(host)
 
-    assert "key_filename" in kwargs
-    assert "password" not in kwargs
+    assert kwargs["key_filename"] == "/tmp/k"
+    assert kwargs["password"] == "s3cret"
 
 
 def test_key_file_tilde_is_expanded(monkeypatch):
