@@ -84,7 +84,21 @@ def test_connect_uses_built_kwargs_and_sets_host_key_policy():
     assert isinstance(policy, paramiko.AutoAddPolicy)
     fake_client.connect.assert_called_once_with(
         "1.2.3.4", port=2222, username="alice", password="s3cret",
+        timeout=10, banner_timeout=10, auth_timeout=10,
     )
+
+
+def test_connect_sets_all_timeouts_to_10_seconds():
+    host = Host(name="w", address="1.2.3.4")
+    fake_client = MagicMock()
+
+    with patch("mla.ssh.paramiko.SSHClient", return_value=fake_client):
+        connect(host)
+
+    kwargs = fake_client.connect.call_args.kwargs
+    assert kwargs["timeout"] == 10
+    assert kwargs["banner_timeout"] == 10
+    assert kwargs["auth_timeout"] == 10
 
 
 def test_connect_wraps_ssh_exception():

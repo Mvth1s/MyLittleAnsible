@@ -529,3 +529,26 @@ def test_module_warnings_are_logged_with_host_prefix(fake_connect, caplog):
                 if r.levelno == logging.WARNING]
     assert warnings == ["host=10.0.0.1 op=template first",
                         "host=10.0.0.1 op=template second"]
+
+
+def test_unreachable_host_gets_a_ko_status_per_todo(monkeypatch, caplog):
+    caplog.set_level(logging.INFO)
+
+    def _connect(host):
+        if host.address == "10.0.0.2":
+            raise SSHConnectionError("timed out")
+        return MagicMock()
+
+    monkeypatch.setattr("mla.ssh.connect", _connect)
+    registry = {"apt": make_module(changed=True)}
+    todos = [Todo(module="apt", params={"name": "nginx"}), Todo(module="apt")]
+    hosts = [make_host("10.0.0.1"), make_host("10.0.0.2")]
+
+    reports = run_todos(todos, hosts, registry=registry)
+
+    assert "[1] host=10.0.0.2 op=apt name=nginx" in caplog.messages
+    assert "[1] host=10.0.0.2 op=apt status=KO" in caplog.messages
+    assert "[2] host=10.0.0.2 op=apt" in caplog.messages
+    assert "[2] host=10.0.0.2 op=apt status=KO" in caplog.messages
+    assert "[1] host=10.0.0.1 op=apt status=CHANGED" in caplog.messages
+    assert reports["10.0.0.2"] == HostReport(ok=0, changed=0, fail=2)

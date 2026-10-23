@@ -9,6 +9,10 @@ from dataclasses import dataclass
 import paramiko
 
 
+# secondes : connexion TCP, bannière SSH, authentification
+CONNECT_TIMEOUT = 10
+
+
 class SSHConnectionError(Exception):
     """
     Connexion ou authentification SSH impossible.
@@ -43,7 +47,10 @@ def connect(host):
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         client.connect(host.address, port=host.port,
-                       **_build_connect_kwargs(host))
+                       **_build_connect_kwargs(host),
+                       timeout=CONNECT_TIMEOUT,
+                       banner_timeout=CONNECT_TIMEOUT,
+                       auth_timeout=CONNECT_TIMEOUT)
     except (paramiko.SSHException, OSError) as exc:
         raise SSHConnectionError(str(exc) or type(exc).__name__) from exc
     return client

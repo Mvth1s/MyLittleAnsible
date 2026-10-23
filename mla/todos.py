@@ -96,11 +96,9 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
 
     clients = {}
     reports = {h.name: HostReport() for h in hosts}
-    usable = []
     for host in hosts:
         try:
             clients[host.name] = ssh.connect(host)
-            usable.append(host)
         except ssh.SSHConnectionError as exc:
             logger.error("host=%s connection failed: %s",
                          host.address, truncate_output(str(exc)))
@@ -111,13 +109,18 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
             params_str = _format_params(todo.params)
             module_cls = registry[todo.module]
 
-            for host in usable:
+            for host in hosts:
                 ligne = f"[{i}] host={host.address} op={todo.module}"
                 if params_str:
                     ligne += f" {params_str}"
                 logger.info(ligne)
 
-            for host in usable:
+            for host in hosts:
+                if host.name not in clients:
+                    # injoignable : KO pour chaque todo (fail déjà compté)
+                    logger.info("[%d] host=%s op=%s status=KO", i,
+                                host.address, todo.module)
+                    continue
                 module = module_cls(todo.params)
                 try:
                     result = module.process(clients[host.name],
