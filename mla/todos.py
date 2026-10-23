@@ -74,6 +74,17 @@ def _format_params(params):
     return " ".join(parts)
 
 
+def _with_defaults(params, module_cls):
+    """
+    'params' complétés, à la fin et dans l'ordre, par les valeurs par
+    défaut du module non précisées (pour l'en-tête de tâche, comme
+    'backup=False' dans l'exemple du sujet).
+    """
+    defaults = getattr(module_cls, "DEFAULTS", {})
+    return {**params,
+            **{k: v for k, v in defaults.items() if k not in params}}
+
+
 def run_todos(todos, hosts, registry=None, dry_run=False):
     """
     Exécute chaque todo sur chaque host et logue au format du sujet.
@@ -106,8 +117,9 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
 
     try:
         for i, todo in enumerate(todos, start=1):
-            params_str = _format_params(todo.params)
             module_cls = registry[todo.module]
+            params_str = _format_params(
+                _with_defaults(todo.params, module_cls))
 
             for host in hosts:
                 ligne = f"[{i}] host={host.address} op={todo.module}"

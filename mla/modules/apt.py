@@ -15,6 +15,7 @@ from mla.ssh import run_remote_cmd
 
 class Apt(BaseModule):
     name = "apt"
+    DEFAULTS = {"state": "present"}
 
     def _params(self):
         """
@@ -23,7 +24,7 @@ class Apt(BaseModule):
         name = self.params.get("name")
         if not name:
             raise ModuleError("apt: missing 'name' parameter")
-        state = self.params.get("state", "present")
+        state = self.params.get("state", self.DEFAULTS["state"])
         if state not in ("present", "absent"):
             raise ModuleError(f"apt: invalid state: {state}")
         return name, state

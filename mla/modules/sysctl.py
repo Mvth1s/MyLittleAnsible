@@ -18,6 +18,7 @@ CONF_FILE = "/etc/sysctl.d/99-mla.conf"
 
 class Sysctl(BaseModule):
     name = "sysctl"
+    DEFAULTS = {"permanent": False}
 
     def _params(self):
         attribute = self.params.get("attribute")
@@ -26,7 +27,7 @@ class Sysctl(BaseModule):
         if "value" not in self.params:
             raise ModuleError("sysctl: missing 'value' parameter")
         value = str(self.params["value"])
-        permanent = self.params.get("permanent", False)
+        permanent = self.params.get("permanent", self.DEFAULTS["permanent"])
         return attribute, value, permanent
 
     def _current_value(self, ssh_client, attribute):
