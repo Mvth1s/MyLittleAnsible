@@ -78,7 +78,7 @@ def run_todos(todos, hosts, registry=None, dry_run=False):
     """
     Exécute chaque todo sur chaque host et logue au format du sujet.
 
-    Retourne {ip: HostReport}.
+    Retourne {host_name: HostReport}.
     """
     if registry is None:
         raise TodosError("no module registry provided")
